@@ -15,16 +15,16 @@ const steps = [
   {
     number: '02',
     icon: CheckCircle,
-    title: 'Run Compliance Check',
-    description: 'Our system analyzes dimensions, calculates optimal box size, checks void space (<40% PPWR threshold), and generates DPP data instantly.',
+    title: 'Automated Calculations',
+    description: 'Our system analyzes dimensions, calculates optimal box size, checks void space against PPWR thresholds, and generates documentation for your records.',
     color: 'text-success',
     bgColor: 'bg-success/10',
   },
   {
     number: '03',
     icon: Download,
-    title: 'Download Reports & QR Codes',
-    description: 'Get professional PDF reports with compliance data and print-ready QR code labels. Share verification links with customers.',
+    title: 'Download Documentation',
+    description: 'Download professional PDF reports with compliance calculations and print-ready QR code labels for your documentation needs.',
     color: 'text-warning',
     bgColor: 'bg-warning/10',
   },
@@ -48,7 +48,7 @@ export function HowItWorks() {
             How <span className="gradient-text">CompliPack</span> Works
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Get compliant in three simple steps. No technical setup. No integrations required.
+            Generate professional compliance documentation in three simple steps. No technical setup. No integrations required.
           </p>
         </motion.div>
 

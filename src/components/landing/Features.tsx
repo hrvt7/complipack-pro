@@ -6,22 +6,22 @@ import { Package, FileText, Tag, Upload, FileCheck, CheckCircle } from 'lucide-r
 const features = [
   {
     icon: Package,
-    title: 'PPWR Article 24 Compliance',
-    description: 'Automatic box optimization to stay under 40% void space. EU PPWR-compliant packaging recommendations with cost savings analysis.',
+    title: 'PPWR Article 24 Compliance Tools',
+    description: 'Automatic box optimization calculations to help you stay under 40% void space threshold. EU PPWR-aligned packaging recommendations with cost analysis. Documentation tool for compliance records.',
     color: 'bg-primary/10 text-primary',
     borderColor: 'group-hover:border-primary/50',
   },
   {
     icon: FileText,
-    title: 'Digital Product Passports',
-    description: 'Generate legally compliant DPPs with material composition, carbon footprint estimates, and recyclability scores. Meet EU DPP requirements.',
+    title: 'DPP-Ready Documentation',
+    description: 'Generate structured DPP-ready reports with material composition, estimated carbon footprint, and recyclability scores. Prepares documentation to help meet upcoming EU DPP requirements. Not official certification.',
     color: 'bg-success/10 text-success',
     borderColor: 'group-hover:border-success/50',
   },
   {
     icon: Tag,
-    title: 'Dual QR Code Labels',
-    description: 'Print-ready labels with PPWR and DPP QR codes. Customers scan for instant compliance verification. High-resolution 300 DPI.',
+    title: 'Compliance QR Code Labels',
+    description: 'Print-ready labels with PPWR and DPP information QR codes. Customers scan for compliance documentation. High-resolution 300 DPI for professional printing.',
     color: 'bg-warning/10 text-warning',
     borderColor: 'group-hover:border-warning/50',
   },
@@ -34,15 +34,15 @@ const features = [
   },
   {
     icon: FileCheck,
-    title: 'Professional PDF Reports',
-    description: 'Audit-ready compliance reports with executive summaries, void space calculations, DPP data, and embedded QR codes.',
+    title: 'Professional Compliance Reports',
+    description: 'Audit-ready documentation with executive summaries, void space calculations, DPP-ready data, and embedded QR codes. For internal compliance records and supplier communication. Not legal certification.',
     color: 'bg-purple-500/10 text-purple-500',
     borderColor: 'group-hover:border-purple-500/50',
   },
   {
     icon: CheckCircle,
-    title: 'Public Verification Pages',
-    description: 'Each QR code links to a public verification page. Customers and auditors can verify compliance 24/7. No login required.',
+    title: 'Public Information Pages',
+    description: 'Each QR code links to a public information page displaying compliance data. Customers and stakeholders can view product information 24/7. Documentation tool only.',
     color: 'bg-success/10 text-success',
     borderColor: 'group-hover:border-success/50',
   },
@@ -83,10 +83,10 @@ export function Features() {
         >
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
             Everything You Need for{' '}
-            <span className="gradient-text">EU Compliance</span>
+            <span className="gradient-text">EU Compliance Documentation</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Complete PPWR and DPP compliance tools in one platform. Upload products, run checks, download reports.
+            Comprehensive documentation tools designed specifically for EU e-commerce packaging regulations. Professional record-keeping for PPWR and DPP preparation.
           </p>
         </motion.div>
 

@@ -18,10 +18,10 @@ const resourceLinks = [
 ];
 
 const legalLinks = [
-  { name: 'Privacy Policy', href: '#' },
-  { name: 'Terms of Service', href: '#' },
-  { name: 'Cookie Policy', href: '#' },
-  { name: 'GDPR Compliance', href: '#' },
+  { name: 'Terms of Service', href: '/legal/terms' },
+  { name: 'Privacy Policy', href: '/legal/privacy' },
+  { name: 'Cookie Policy', href: '/legal/cookies' },
+  { name: 'Compliance Disclaimer', href: '/legal/disclaimer' },
 ];
 
 const languages = [
@@ -55,8 +55,11 @@ export function Footer() {
                 Compli<span className="text-primary">Pack</span>
               </span>
             </Link>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground mb-2">
               EU Compliance Made Simple
+            </p>
+            <p className="text-sm text-muted-foreground mb-2">
+              Documentation tools for EU compliance – not legal advice.
             </p>
             <p className="text-sm text-muted-foreground">
               © 2026 CompliPack. All rights reserved.
@@ -103,12 +106,12 @@ export function Footer() {
             <ul className="space-y-3">
               {legalLinks.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
+                  <Link
+                    to={link.href}
                     className="text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {link.name}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

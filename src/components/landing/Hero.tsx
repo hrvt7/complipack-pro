@@ -1,12 +1,13 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ArrowRight, Play, Check, Package, FileText, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const featurePills = [
-  { icon: Package, label: 'PPWR Compliance', color: 'bg-primary/10 text-primary border-primary/20' },
-  { icon: FileText, label: 'DPP Generation', color: 'bg-success/10 text-success border-success/20' },
-  { icon: Search, label: 'Instant Verification', color: 'bg-warning/10 text-warning border-warning/20' },
+  { icon: Package, label: 'PPWR Compliance Tools', color: 'bg-primary/10 text-primary border-primary/20' },
+  { icon: FileText, label: 'DPP Documentation', color: 'bg-success/10 text-success border-success/20' },
+  { icon: Search, label: 'Compliance Reports', color: 'bg-warning/10 text-warning border-warning/20' },
 ];
 
 const containerVariants = {
@@ -92,16 +93,25 @@ export function Hero() {
               className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight mb-6"
             >
               <span className="gradient-text-blue">PPWR</span> Packaging Compliance &{' '}
-              <span className="gradient-text-emerald">Digital Product Passports</span> for EU E-commerce
+              <span className="gradient-text-emerald">DPP-Ready Documentation</span> for EU E-commerce
             </motion.h1>
 
             {/* Subheadline */}
             <motion.p
               variants={itemVariants}
-              className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0 mb-8 leading-relaxed"
+              className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0 mb-4 leading-relaxed"
             >
-              Automate EU PPWR Article 24 void space compliance and generate legally compliant Digital Product Passports. 
-              Avoid €10K-500K fines. Get audit-ready PDF reports and QR codes in minutes.
+              Automate EU PPWR Article 24 void space calculations and generate DPP-ready compliance reports. 
+              Professional documentation tools to help reduce risk of €10K-500K non-compliance penalties.
+            </motion.p>
+            
+            {/* Legal disclaimer */}
+            <motion.p
+              variants={itemVariants}
+              className="text-sm text-muted-foreground/70 max-w-2xl mx-auto lg:mx-0 mb-8"
+            >
+              For informational purposes – not legal advice. See our{' '}
+              <Link to="/legal/disclaimer" className="text-primary hover:underline">disclaimer</Link>.
             </motion.p>
 
             {/* Feature Pills */}

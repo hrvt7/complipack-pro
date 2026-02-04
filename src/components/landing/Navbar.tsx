@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ChevronDown, Sun, Moon, Package } from 'lucide-react';
@@ -16,6 +16,7 @@ const complianceLinks = [
   { name: 'PPWR Article 24', href: '#ppwr' },
   { name: 'Digital Product Passports', href: '#dpp' },
   { name: 'EU Regulations Overview', href: '#regulations' },
+  { name: 'Compliance Disclaimer', href: '/legal/disclaimer', isRoute: true },
 ];
 
 export function Navbar() {
@@ -102,17 +103,31 @@ export function Navbar() {
                     transition={{ duration: 0.2 }}
                     className="absolute top-full right-0 mt-2 w-56 glass rounded-xl p-2 shadow-lg"
                   >
-                    {complianceLinks.map((link) => (
-                      <button
-                        key={link.name}
-                        onClick={() => {
-                          scrollToSection(link.href);
-                          setIsComplianceOpen(false);
-                        }}
-                        className="block w-full text-left px-4 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                      >
-                        {link.name}
-                      </button>
+                    {complianceLinks.map((link, index) => (
+                      <React.Fragment key={link.name}>
+                        {index === complianceLinks.length - 1 && (
+                          <div className="border-t border-border my-1" />
+                        )}
+                        {link.isRoute ? (
+                          <Link
+                            to={link.href}
+                            className="block w-full text-left px-4 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                            onClick={() => setIsComplianceOpen(false)}
+                          >
+                            {link.name}
+                          </Link>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              scrollToSection(link.href);
+                              setIsComplianceOpen(false);
+                            }}
+                            className="block w-full text-left px-4 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                          >
+                            {link.name}
+                          </button>
+                        )}
+                      </React.Fragment>
                     ))}
                   </motion.div>
                 )}

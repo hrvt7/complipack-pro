@@ -4,20 +4,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eye, EyeOff, Mail, Lock, User, Loader2, Check } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { TermsAcceptanceModal } from './TermsAcceptanceModal';
 
 const signupSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string().email('Please enter a valid email'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string(),
-  terms: z.boolean().refine((val) => val === true, 'You must accept the terms'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],
@@ -29,6 +28,8 @@ export function SignupForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<SignupFormData | null>(null);
   const { signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -37,21 +38,24 @@ export function SignupForm() {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
-    watch,
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
-    defaultValues: {
-      terms: false,
-    },
   });
 
-  const termsValue = watch('terms');
-
   const onSubmit = async (data: SignupFormData) => {
+    // Show terms modal before proceeding
+    setPendingFormData(data);
+    setShowTermsModal(true);
+  };
+
+  const handleTermsAccept = async () => {
+    if (!pendingFormData) return;
+    
+    setShowTermsModal(false);
     setIsLoading(true);
+    
     try {
-      const { error } = await signUp(data.email, data.password, data.fullName);
+      const { error } = await signUp(pendingFormData.email, pendingFormData.password, pendingFormData.fullName);
       if (error) {
         toast({
           title: 'Error',
@@ -73,7 +77,13 @@ export function SignupForm() {
       });
     } finally {
       setIsLoading(false);
+      setPendingFormData(null);
     }
+  };
+
+  const handleTermsCancel = () => {
+    setShowTermsModal(false);
+    setPendingFormData(null);
   };
 
   return (
@@ -171,24 +181,6 @@ export function SignupForm() {
         )}
       </div>
 
-      {/* Terms Checkbox */}
-      <div className="flex items-start gap-3">
-        <Checkbox
-          id="terms"
-          checked={termsValue}
-          onCheckedChange={(checked) => setValue('terms', checked === true)}
-          className="mt-1"
-        />
-        <Label htmlFor="terms" className="text-sm text-muted-foreground leading-relaxed cursor-pointer">
-          I agree to the{' '}
-          <a href="#" className="text-primary hover:underline">Terms of Service</a> and{' '}
-          <a href="#" className="text-primary hover:underline">Privacy Policy</a>
-        </Label>
-      </div>
-      {errors.terms && (
-        <p className="text-sm text-destructive">{errors.terms.message}</p>
-      )}
-
       {/* Submit Button */}
       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
         <Button
@@ -206,6 +198,13 @@ export function SignupForm() {
           )}
         </Button>
       </motion.div>
+
+      {/* Terms Acceptance Modal */}
+      <TermsAcceptanceModal
+        isOpen={showTermsModal}
+        onAccept={handleTermsAccept}
+        onCancel={handleTermsCancel}
+      />
     </motion.form>
   );
 }
