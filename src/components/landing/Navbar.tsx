@@ -22,7 +22,7 @@ export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isComplianceOpen, setIsComplianceOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -131,7 +131,7 @@ export function Navbar() {
               aria-label="Toggle theme"
             >
               <AnimatePresence mode="wait">
-                {theme === 'light' ? (
+                {resolvedTheme === 'light' ? (
                   <motion.div
                     key="sun"
                     initial={{ rotate: -90, opacity: 0 }}

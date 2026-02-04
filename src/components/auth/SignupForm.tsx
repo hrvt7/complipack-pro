@@ -63,7 +63,7 @@ export function SignupForm() {
           title: 'Account created!',
           description: 'Redirecting to dashboard...',
         });
-        setTimeout(() => navigate('/'), 2000);
+        setTimeout(() => navigate('/dashboard'), 1500);
       }
     } catch (err) {
       toast({
