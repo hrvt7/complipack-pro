@@ -159,9 +159,9 @@ export function TopBar({ children }: TopBarProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
-                <Avatar className="h-8 w-8">
+              <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {user ? getInitials(user.fullName) : 'U'}
+                    {user ? getInitials(user.user_metadata?.full_name || user.email || 'U') : 'U'}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -169,7 +169,7 @@ export function TopBar({ children }: TopBarProps) {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div className="flex flex-col">
-                  <span className="font-semibold">{user?.fullName}</span>
+                  <span className="font-semibold">{user?.user_metadata?.full_name || 'User'}</span>
                   <span className="text-xs text-muted-foreground">{user?.email}</span>
                 </div>
               </DropdownMenuLabel>

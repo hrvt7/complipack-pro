@@ -24,6 +24,8 @@ import TermsOfService from "./pages/legal/TermsOfService";
 import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
 import CookiePolicy from "./pages/legal/CookiePolicy";
 import Disclaimer from "./pages/legal/Disclaimer";
+import PPWRVerify from "./pages/verify/PPWRVerify";
+import DPPVerify from "./pages/verify/DPPVerify";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +50,10 @@ const App = () => (
                       <Route path="/legal/privacy" element={<PrivacyPolicy />} />
                       <Route path="/legal/cookies" element={<CookiePolicy />} />
                       <Route path="/legal/disclaimer" element={<Disclaimer />} />
+                      
+                      {/* Verification Routes (Public) */}
+                      <Route path="/verify/ppwr/:reportId" element={<PPWRVerify />} />
+                      <Route path="/verify/dpp/:reportId" element={<DPPVerify />} />
                       
                       {/* Dashboard Routes */}
                       <Route path="/dashboard" element={

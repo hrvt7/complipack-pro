@@ -52,7 +52,7 @@ export default function Settings() {
   
   const defaultTab = searchParams.get('tab') || 'account';
   
-  const [fullName, setFullName] = useState(user?.fullName || '');
+  const [fullName, setFullName] = useState(user?.user_metadata?.full_name || '');
   const [language, setLanguage] = useState('en');
   const [timezone, setTimezone] = useState('Europe/Berlin');
   
@@ -143,7 +143,7 @@ export default function Settings() {
                 <div className="relative">
                   <Avatar className="h-24 w-24">
                     <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                      {user ? getInitials(user.fullName) : 'U'}
+                      {user ? getInitials(user.user_metadata?.full_name || 'U') : 'U'}
                     </AvatarFallback>
                   </Avatar>
                   <Button
@@ -154,7 +154,7 @@ export default function Settings() {
                   </Button>
                 </div>
                 <div>
-                  <p className="font-medium">{user?.fullName}</p>
+                  <p className="font-medium">{user?.user_metadata?.full_name || 'User'}</p>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                 </div>
               </div>

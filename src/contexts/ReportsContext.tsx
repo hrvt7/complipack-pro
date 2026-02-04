@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext } from 'react';
+import { useAuth } from './AuthContext';
+import { useReports as useReportsHook, ComplianceReport } from '@/hooks/useReports';
 
 export interface Report {
   id: string;
@@ -8,94 +10,101 @@ export interface Report {
   status: 'complete' | 'pending' | 'failed';
   generatedAt: string;
   verificationUrl: string;
+  voidSpace?: number;
+  isCompliant?: boolean;
+  ppwrQrUrl?: string;
+  dppQrUrl?: string;
+  pdfUrl?: string;
 }
 
 interface ReportsContextType {
   reports: Report[];
-  addReport: (report: Omit<Report, 'id' | 'generatedAt' | 'verificationUrl'>) => Report;
-  deleteReport: (id: string) => void;
+  loading: boolean;
+  generating: boolean;
+  addReport: (report: { productId: string; productName: string; type: 'ppwr' | 'dpp' | 'combined'; status: string }) => Promise<Report | null>;
+  deleteReport: (id: string) => Promise<boolean>;
   getReport: (id: string) => Report | undefined;
   getReportsByProduct: (productId: string) => Report[];
+  generateReport: (productId: string, reportType: 'ppwr' | 'dpp' | 'combined') => Promise<Report | null>;
+  refreshReports: () => Promise<void>;
 }
 
 const ReportsContext = createContext<ReportsContextType | undefined>(undefined);
 
-// Generate 127 demo reports
-const generateMockReports = (): Report[] => {
-  const reports: Report[] = [];
-  const productNames = [
-    'Blue Cotton T-Shirt', 'Wireless Headphones', 'Ceramic Coffee Mug', 'Organic Face Cream',
-    'Bamboo Cutting Board', 'LED Desk Lamp', 'Leather Wallet', 'Yoga Mat Pro',
-    'Stainless Steel Water Bottle', 'Wool Blend Scarf', 'Portable Charger 10000mAh', 'Natural Lip Balm Set',
-    'Wooden Photo Frame', 'Silicone Kitchen Utensils', 'Running Shoes Size 42', 'Organic Green Tea',
-  ];
-  
-  const types: ('ppwr' | 'dpp' | 'combined')[] = ['ppwr', 'dpp', 'combined'];
-  const statuses: ('complete' | 'pending' | 'failed')[] = ['complete', 'complete', 'complete', 'complete', 'pending', 'failed'];
-
-  for (let i = 0; i < 127; i++) {
-    const generatedDate = new Date();
-    generatedDate.setDate(generatedDate.getDate() - Math.floor(Math.random() * 60));
-    
-    const productIndex = Math.floor(Math.random() * productNames.length);
-    
-    reports.push({
-      id: `RPT-${String(10000 + i).padStart(5, '0')}`,
-      productId: `prod-${String(productIndex + 1).padStart(4, '0')}`,
-      productName: productNames[productIndex],
-      type: types[Math.floor(Math.random() * types.length)],
-      status: statuses[Math.floor(Math.random() * statuses.length)],
-      generatedAt: generatedDate.toISOString(),
-      verificationUrl: `https://verify.complipack.eu/${crypto.randomUUID().slice(0, 8)}`,
-    });
-  }
-
-  return reports.sort((a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime());
+// Transform database report to context report
+const transformReport = (dbReport: ComplianceReport): Report => {
+  return {
+    id: dbReport.id,
+    productId: dbReport.product_id,
+    productName: dbReport.products?.name || 'Unknown Product',
+    type: dbReport.report_type as 'ppwr' | 'dpp' | 'combined',
+    status: dbReport.status as 'complete' | 'pending' | 'failed',
+    generatedAt: dbReport.created_at,
+    verificationUrl: `${window.location.origin}/verify/${dbReport.report_type}/${dbReport.id}`,
+    voidSpace: dbReport.void_space_percent ? Number(dbReport.void_space_percent) : undefined,
+    isCompliant: dbReport.is_ppwr_compliant || undefined,
+    ppwrQrUrl: dbReport.ppwr_qr_url || undefined,
+    dppQrUrl: dbReport.dpp_qr_url || undefined,
+    pdfUrl: dbReport.pdf_url || undefined,
+  };
 };
 
-const STORAGE_KEY = 'complipack-reports';
-
 export function ReportsProvider({ children }: { children: React.ReactNode }) {
-  const [reports, setReports] = useState<Report[]>([]);
+  const { user } = useAuth();
+  const {
+    reports: dbReports,
+    loading,
+    generating,
+    generateReport: generateDbReport,
+    deleteReport: deleteDbReport,
+    getReport: getDbReport,
+    refreshReports
+  } = useReportsHook(user?.id);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      setReports(JSON.parse(stored));
-    } else {
-      const mockReports = generateMockReports();
-      setReports(mockReports);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(mockReports));
+  // Transform database reports to context reports
+  const reports = dbReports.map(transformReport);
+
+  const addReport = async (reportData: { productId: string; productName: string; type: 'ppwr' | 'dpp' | 'combined'; status: string }): Promise<Report | null> => {
+    // Use generateReport instead of direct add
+    const result = await generateDbReport(reportData.productId, reportData.type);
+    if (result) {
+      return transformReport(result);
     }
-  }, []);
-
-  const saveReports = (newReports: Report[]) => {
-    setReports(newReports);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newReports));
+    return null;
   };
 
-  const addReport = (reportData: Omit<Report, 'id' | 'generatedAt' | 'verificationUrl'>): Report => {
-    const newReport: Report = {
-      ...reportData,
-      id: `RPT-${String(10000 + reports.length).padStart(5, '0')}`,
-      generatedAt: new Date().toISOString(),
-      verificationUrl: `https://verify.complipack.eu/${crypto.randomUUID().slice(0, 8)}`,
-    };
-    
-    saveReports([newReport, ...reports]);
-    return newReport;
+  const deleteReport = async (id: string): Promise<boolean> => {
+    return deleteDbReport(id);
   };
 
-  const deleteReport = (id: string) => {
-    saveReports(reports.filter(r => r.id !== id));
+  const getReport = (id: string): Report | undefined => {
+    return reports.find(r => r.id === id);
   };
 
-  const getReport = (id: string) => reports.find(r => r.id === id);
+  const getReportsByProduct = (productId: string): Report[] => {
+    return reports.filter(r => r.productId === productId);
+  };
 
-  const getReportsByProduct = (productId: string) => reports.filter(r => r.productId === productId);
+  const generateReport = async (productId: string, reportType: 'ppwr' | 'dpp' | 'combined'): Promise<Report | null> => {
+    const result = await generateDbReport(productId, reportType);
+    if (result) {
+      return transformReport(result);
+    }
+    return null;
+  };
 
   return (
-    <ReportsContext.Provider value={{ reports, addReport, deleteReport, getReport, getReportsByProduct }}>
+    <ReportsContext.Provider value={{
+      reports,
+      loading,
+      generating,
+      addReport,
+      deleteReport,
+      getReport,
+      getReportsByProduct,
+      generateReport,
+      refreshReports
+    }}>
       {children}
     </ReportsContext.Provider>
   );
