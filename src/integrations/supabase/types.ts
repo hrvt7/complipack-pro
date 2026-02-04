@@ -14,7 +14,277 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      compliance_reports: {
+        Row: {
+          created_at: string | null
+          dpp_data: Json | null
+          dpp_qr_url: string | null
+          id: string
+          is_ppwr_compliant: boolean | null
+          pdf_url: string | null
+          ppwr_qr_url: string | null
+          product_id: string
+          recommended_box_id: string | null
+          report_type: string
+          status: string | null
+          updated_at: string | null
+          user_id: string
+          void_space_percent: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          dpp_data?: Json | null
+          dpp_qr_url?: string | null
+          id?: string
+          is_ppwr_compliant?: boolean | null
+          pdf_url?: string | null
+          ppwr_qr_url?: string | null
+          product_id: string
+          recommended_box_id?: string | null
+          report_type: string
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+          void_space_percent?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          dpp_data?: Json | null
+          dpp_qr_url?: string | null
+          id?: string
+          is_ppwr_compliant?: boolean | null
+          pdf_url?: string | null
+          ppwr_qr_url?: string | null
+          product_id?: string
+          recommended_box_id?: string | null
+          report_type?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+          void_space_percent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_reports_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_reports_recommended_box_id_fkey"
+            columns: ["recommended_box_id"]
+            isOneToOne: false
+            referencedRelation: "standard_boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          height_cm: number
+          id: string
+          length_cm: number
+          materials: string | null
+          name: string
+          updated_at: string | null
+          user_id: string
+          weight_kg: number | null
+          width_cm: number
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          height_cm: number
+          id?: string
+          length_cm: number
+          materials?: string | null
+          name: string
+          updated_at?: string | null
+          user_id: string
+          weight_kg?: number | null
+          width_cm: number
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          height_cm?: number
+          id?: string
+          length_cm?: number
+          materials?: string | null
+          name?: string
+          updated_at?: string | null
+          user_id?: string
+          weight_kg?: number | null
+          width_cm?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      standard_boxes: {
+        Row: {
+          cost_eur: number
+          created_at: string | null
+          height_cm: number
+          id: string
+          length_cm: number
+          name: string
+          volume_cm3: number | null
+          width_cm: number
+        }
+        Insert: {
+          cost_eur: number
+          created_at?: string | null
+          height_cm: number
+          id?: string
+          length_cm: number
+          name: string
+          volume_cm3?: number | null
+          width_cm: number
+        }
+        Update: {
+          cost_eur?: number
+          created_at?: string | null
+          height_cm?: number
+          id?: string
+          length_cm?: number
+          name?: string
+          volume_cm3?: number | null
+          width_cm?: number
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          created_at: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          products_limit: number
+          products_used: number | null
+          status: string
+          tier: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          products_limit?: number
+          products_used?: number | null
+          status?: string
+          tier?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          products_limit?: number
+          products_used?: number | null
+          status?: string
+          tier?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      terms_acceptances: {
+        Row: {
+          accepted_at: string | null
+          id: string
+          ip_address: string | null
+          privacy_version: string
+          terms_version: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          id?: string
+          ip_address?: string | null
+          privacy_version: string
+          terms_version: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          id?: string
+          ip_address?: string | null
+          privacy_version?: string
+          terms_version?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "terms_acceptances_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_profiles: {
+        Row: {
+          avatar_url: string | null
+          company_name: string | null
+          created_at: string | null
+          full_name: string
+          id: string
+          language: string | null
+          theme: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          company_name?: string | null
+          created_at?: string | null
+          full_name: string
+          id: string
+          language?: string | null
+          theme?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          company_name?: string | null
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          language?: string | null
+          theme?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
