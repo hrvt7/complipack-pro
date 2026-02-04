@@ -1,469 +1,480 @@
 
 
-# CompliPack Phase 2 - Dashboard, Products, Reports & Settings
+# CompliPack Phase 3 - Legal Compliance & GDPR Implementation Plan
 
 ## Overview
-Build the complete internal application with Dashboard, Products management, Reports generation, and Settings pages. This phase transforms CompliPack from a landing page into a fully functional compliance management platform with premium animations and glass-morphism design.
+This phase implements comprehensive legal compliance including GDPR-compliant cookie consent, legally safe copywriting across all pages, full Terms of Service and Privacy Policy pages, and GDPR tools in the Settings page. This protects CompliPack from liability claims and ensures EU regulatory compliance.
+
+---
 
 ## Architecture Overview
 
 ```text
-+--------------------------------------------------------------------+
-|                        DashboardLayout                              |
-|  +-------------+  +---------------------------------------------+  |
-|  |   Sidebar   |  |              TopBar                          |  |
-|  |-------------|  |  [Page Title]        [Search] [Bell] [Theme] |  |
-|  | Logo        |  |                           [User Dropdown]    |  |
-|  | Dashboard   |  +---------------------------------------------+  |
-|  | Products    |  |                                              |  |
-|  | Reports     |  |           Main Content Area                  |  |
-|  | Settings    |  |                                              |  |
-|  |-------------|  |    (Dashboard / Products / Reports / etc.)   |  |
-|  | Plan Badge  |  |                                              |  |
-|  | Usage Bar   |  |                                              |  |
-|  +-------------+  +---------------------------------------------+  |
-+--------------------------------------------------------------------+
++----------------------------------------------------------+
+|                     Legal Compliance System               |
++----------------------------------------------------------+
+|                                                           |
+|  +-------------------+  +-----------------------------+   |
+|  | Cookie Consent    |  |      Legal Pages            |   |
+|  | Banner Component  |  | /legal/terms                |   |
+|  | (CookieConsent.tsx)|  | /legal/privacy              |   |
+|  +-------------------+  | /legal/cookies              |   |
+|           |             | /legal/disclaimer           |   |
+|           v             +-----------------------------+   |
+|  +-------------------+              |                     |
+|  | CookieContext.tsx |              v                     |
+|  | (consent state)   |  +-----------------------------+   |
+|  +-------------------+  |    Settings Privacy Tab     |   |
+|                         |  - Cookie preferences        |   |
+|                         |  - Data export               |   |
+|                         |  - Account deletion          |   |
+|                         |  - GDPR rights info          |   |
+|                         +-----------------------------+   |
++----------------------------------------------------------+
 ```
 
 ---
 
-## Technical Design
-
-### 1. Protected Route System
-- **ProtectedRoute Component**: Wraps all `/dashboard/*` routes
-- Checks `useAuth()` for authenticated user
-- Redirects unauthenticated users to `/auth`
-- Shows loading spinner during auth check
-- Auto-redirects authenticated users from `/auth` to `/dashboard`
-
-### 2. Mock Data Layer
-- **ProductsContext**: Manages products state with CRUD operations
-- **ReportsContext**: Manages reports state and generation
-- **Data stored in localStorage** for persistence across page refreshes
-- Pre-populated with 47 demo products and 127 reports
-
-### 3. Component Structure
-```text
-src/
-  components/
-    dashboard/
-      DashboardLayout.tsx      # Main layout with sidebar + topbar
-      Sidebar.tsx              # Collapsible sidebar navigation
-      TopBar.tsx               # Header with search, notifications, user menu
-      StatsCard.tsx            # Animated stat card component
-      ProductCard.tsx          # Product grid card
-      ProductTable.tsx         # Product table view
-      RecentProductsTable.tsx  # Dashboard recent products
-      AddProductModal.tsx      # Slide-in product form
-      ImportCSVModal.tsx       # CSV import wizard
-      GenerateReportModal.tsx  # Multi-step report wizard
-      SettingsTabs.tsx         # Settings page content
-  contexts/
-    ProductsContext.tsx        # Products state management
-    ReportsContext.tsx         # Reports state management
-  pages/
-    Dashboard.tsx              # Main dashboard page
-    Products.tsx               # Products list page
-    Reports.tsx                # Reports list page
-    Settings.tsx               # Settings page with tabs
-```
-
----
-
-## Page 1: Dashboard (/dashboard)
-
-### Stats Cards Section
-Four animated cards in a responsive grid showing:
-- **Total Products**: Package icon, blue, count-up animation, "+12 this month"
-- **Compliant Products**: CheckCircle icon, green, circular progress ring (91%)
-- **Reports Generated**: FileText icon, amber, count-up, "+23 this week"
-- **Non-Compliant**: AlertTriangle icon, red, "Fix Now" action link
-
-**Animations**:
-- Fade-in-up with 50ms stagger between cards
-- Number count-up using Framer Motion's `useMotionValue` and `useSpring`
-- Progress ring animates on mount with `stroke-dashoffset` transition
-
-### Quick Actions Section
-Horizontal row of action buttons:
-- "Add Product" (primary gradient, PlusCircle icon)
-- "Import CSV" (secondary outline, Upload icon)
-- "Generate Report" (secondary outline, FileText icon)
-
-### Recent Products Table
-- Shows last 5 products with columns: Name, Dimensions, PPWR Status, DPP Status, Last Updated, Actions
-- Action icons visible on row hover (view, generate report, delete)
-- Empty state with illustration when no products
-- "View all products" link to /dashboard/products
-
----
-
-## Page 2: Products (/dashboard/products)
-
-### Header & Controls
-- Page title with subtitle
-- "Add Product" and "Import CSV" buttons (top right)
-- Search input with debounce (500ms)
-- Filter dropdown (All, Compliant, Non-Compliant, Missing DPP)
-- Sort dropdown (Name A-Z/Z-A, Recently Updated, Oldest)
-- View toggle (Grid/Table icons)
-
-### Grid View (default)
-- 3-column responsive grid (2 on tablet, 1 on mobile)
-- Product cards with:
-  - Image placeholder (gray box with Package icon)
-  - Name, dimensions badge
-  - PPWR/DPP status badges (green/red)
-  - Void space progress bar (color-coded at 40% threshold)
-  - Hover reveals "View Report" button and 3-dot menu
-- Card hover: scale 1.03, shadow increase, actions slide-up
-
-### Table View
-- Full table with sortable columns and row checkboxes
-- Bulk actions bar when items selected (Generate Reports, Delete)
-
-### Add Product Modal (Sheet from right)
-- 500px wide slide-in panel
-- Form fields: Name, Description, Dimensions (L/W/H), Weight, Materials
-- **Live Preview Panel**: Shows calculated void space and compliance status as user types
-- Real-time void space calculation: `((boxVolume - productVolume) / boxVolume) * 100`
-- Preview animates with debounce (300ms)
-
-### Import CSV Modal
-- Multi-step wizard:
-  1. Instructions with downloadable template
-  2. Drag-drop upload zone (.csv only)
-  3. Preview table with column validation
-  4. Import progress bar
-- Success toast with error log link
-
----
-
-## Page 3: Reports (/dashboard/reports)
-
-### Header & Filters
-- Page title: "Compliance Reports"
-- "Generate New Report" button (primary)
-- Date range picker with presets (Today, Last 7 days, Last 30 days, Custom)
-- Report type filter (All, PPWR Only, DPP Only, Combined)
-- Status filter (All, Generated, Pending, Failed)
-
-### Reports Table
-- Columns: Report ID (monospace, copy icon), Product Name, Type badge, Generated Date, Status badge, Actions
-- Status badges: Complete (green), Pending (amber + spinner), Failed (red)
-- Action icons: View, Download PDF, Copy link, Delete
-- Empty state with illustration
-
-### Generate Report Modal (Multi-step)
-**Step 1 - Select Products**:
-- Searchable list with checkboxes
-- Compact product cards showing name, dimensions, status
-- "Select All" option
-- Selected count display
-
-**Step 2 - Report Options**:
-- Radio buttons: PPWR Only, DPP Only, Combined (recommended badge)
-- Checkboxes: QR codes, Verification links, Material charts, Company logo (Pro only)
-
-**Step 3 - Generating**:
-- Loading animation with spinning document icon
-- Progress text: "Generating report... 15 seconds remaining"
-
-**Step 4 - Success**:
-- Green checkmark animation
-- Download PDF button, View in Reports link, Generate Another button
-
----
-
-## Page 4: Settings (/dashboard/settings)
-
-### Tab Navigation (horizontal tabs or left sidebar)
-Uses Radix Tabs component with 4 sections:
-
-### Account Tab
-- Avatar upload (circular, 120px)
-- Full name (editable input)
-- Email (read-only with "Verified" badge)
-- Change password button (opens modal with current/new/confirm fields)
-- Language dropdown (English, Deutsch, Magyar)
-- Timezone dropdown (searchable)
-- Save Changes button
-
-### Billing Tab
-- Current plan card (glass-morphism):
-  - Plan name, price, status badge, renewal date
-- Usage meter: "47 / 200 products" with progress bar
-- Payment method card: card icon, last 4 digits, expiry, Update button
-- Billing history table (last 5 invoices with download links)
-- "Upgrade to Pro" button (if not Pro)
-- "Cancel Subscription" button (danger, outline)
-
-### Preferences Tab
-- Theme selector (radio): Light, Dark, System
-- Notification toggles (switches):
-  - Email notifications
-  - Product compliance alerts
-  - Monthly usage summary
-  - Marketing emails
-- Default report format (radio): PPWR Only, DPP Only, Combined
-- Save Preferences button
-
-### Integrations Tab
-- Coming soon section with disabled connect buttons:
-  - Shopify card (logo + "Coming Soon" badge)
-  - Etsy card (logo + "Coming Soon" badge)
-- API Access card (Pro tier only):
-  - Masked API key with copy button
-  - Generate new key button
-  - Docs link
-
----
-
-## Layout Components
-
-### DashboardLayout.tsx
-- Wraps all dashboard pages
-- Manages sidebar collapse state (persisted to localStorage)
-- Responsive: hides sidebar on mobile, shows hamburger menu
-- CSS Grid layout: `grid-cols-[auto_1fr]` for sidebar + content
-
-### Sidebar.tsx (240px wide, collapsible to 60px)
-**Top Section**:
-- CompliPack logo (32px) + wordmark (hidden when collapsed)
-- Collapse toggle button (chevron rotates 180deg)
-
-**Navigation Links**:
-- Dashboard (LayoutDashboard icon)
-- Products (Package icon)
-- Reports (FileText icon)
-- Settings (Settings icon)
-
-**Active State**:
-- Blue gradient background: `from-primary/10 to-primary/5`
-- Left border: `4px solid primary`
-- Icon and text in primary color
-
-**Bottom Section**:
-- Plan badge ("Standard Plan" pill)
-- "Upgrade to Pro" button (if applicable)
-- Usage indicator: "47 / 200 products" with thin progress bar
-
-**Mobile**:
-- Hidden by default
-- Slides in from left with overlay
-- Close button (X) in top-right
-
-### TopBar.tsx (sticky, full width)
-**Left**: Page title (H3, font-weight 600)
-
-**Right**:
-- Search button (expands input on click)
-- Notifications bell (with unread badge count)
-- Dark/Light toggle (reuse from Navbar)
-- User avatar dropdown:
-  - Name + email
-  - Account Settings
-  - Billing
-  - Help & Docs
-  - Log Out (with confirm modal)
-
----
-
-## Animation System
-
-### Page Transitions
-- Fade in/out (200ms) using Framer Motion `AnimatePresence`
-- Content slides up slightly on enter
-
-### Card Animations
-- Stats cards: fade-in-up with 50ms stagger
-- Product cards: hover scale(1.03), shadow increase
-- Numbers: count-up from 0 using `useSpring`
-
-### Modal Animations
-- Sheet: slide-in from right with backdrop fade
-- Dialog: scale-in with fade
-- Multi-step: content cross-fades between steps
-
-### Progress Indicators
-- Progress bars: width animates from 0 to value
-- Circular progress: stroke-dashoffset animation
-- Loading spinners: Loader2 icon with spin animation
-
-### Micro-interactions
-- Buttons: scale on press (0.98), hover (1.02)
-- Checkboxes: smooth check animation
-- Switches: slide with subtle bounce
-- Toasts: slide-in from top-right
-
----
-
-## Mock Data Structure
-
-### Products (47 demo products)
-```typescript
-interface Product {
-  id: string;
-  name: string;
-  description?: string;
-  length: number;      // cm
-  width: number;       // cm
-  height: number;      // cm
-  weight?: number;     // kg
-  materials?: string;
-  ppwrCompliant: boolean;
-  voidSpace: number;   // percentage
-  hasDPP: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-```
-
-### Reports (127 demo reports)
-```typescript
-interface Report {
-  id: string;          // e.g., "RPT-12847"
-  productId: string;
-  productName: string;
-  type: 'ppwr' | 'dpp' | 'combined';
-  status: 'complete' | 'pending' | 'failed';
-  generatedAt: string;
-  verificationUrl: string;
-}
-```
-
-### User Plan
-```typescript
-interface UserPlan {
-  name: 'basic' | 'standard' | 'pro';
-  productsLimit: number;
-  productsUsed: number;
-  renewalDate: string;
-}
-```
-
----
-
-## Responsive Breakpoints
-
-### Mobile (< 640px)
-- Sidebar hidden, hamburger menu
-- Stats: 1-column stack
-- Products: 1-column grid, card view preferred
-- Tables: horizontal scroll or card view
-- Modals: full-screen
-- Forms: single column
-
-### Tablet (640px - 1024px)
-- Sidebar collapsible (icon-only mode)
-- Stats: 2-column grid
-- Products: 2-column grid
-- Tables: simplified columns
-- Modals: 90% width
-
-### Desktop (> 1024px)
-- Full layout as designed
-- Sidebar always visible (can collapse)
-- Stats: 4-column grid
-- Products: 3-column grid
-- Modals: max-width 600-800px
-
----
-
-## Routing Updates (App.tsx)
-
-```typescript
-// New routes to add:
-<Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-<Route path="/dashboard/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-<Route path="/dashboard/products/new" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-<Route path="/dashboard/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-<Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-```
-
----
-
-## Files to Create
-
-### Contexts
-1. `src/contexts/ProductsContext.tsx` - Products state management with CRUD
-2. `src/contexts/ReportsContext.tsx` - Reports state management
-
-### Components
-3. `src/components/dashboard/DashboardLayout.tsx` - Main layout wrapper
-4. `src/components/dashboard/Sidebar.tsx` - Navigation sidebar
-5. `src/components/dashboard/TopBar.tsx` - Header with user menu
-6. `src/components/dashboard/StatsCard.tsx` - Animated stat card
-7. `src/components/dashboard/RecentProductsTable.tsx` - Dashboard table
-8. `src/components/dashboard/ProductCard.tsx` - Grid view card
-9. `src/components/dashboard/ProductTable.tsx` - Table view
-10. `src/components/dashboard/AddProductModal.tsx` - Add product sheet
-11. `src/components/dashboard/ImportCSVModal.tsx` - CSV import wizard
-12. `src/components/dashboard/GenerateReportModal.tsx` - Report wizard
-13. `src/components/ProtectedRoute.tsx` - Auth guard
-
-### Pages
-14. `src/pages/Dashboard.tsx` - Main dashboard
-15. `src/pages/Products.tsx` - Products management
-16. `src/pages/Reports.tsx` - Reports management
-17. `src/pages/Settings.tsx` - User settings
+## Part 1: Copywriting Updates (Legally Safe Language)
 
 ### Files to Modify
-18. `src/App.tsx` - Add new routes and providers
-19. `src/components/auth/SignupForm.tsx` - Redirect to /dashboard instead of /
+
+**1. Hero.tsx - Landing Page Hero**
+Updates to headline and subheadline:
+- Headline: Add "DPP-Ready Documentation" instead of "Digital Product Passports"
+- Subheadline: Replace "legally compliant" with softer language, add "for informational purposes - not legal advice"
+- Feature pills: Update to "PPWR Compliance Tools", "DPP Documentation", "Compliance Reports"
+
+**2. Features.tsx - Feature Cards**
+Update all 6 feature cards with legally safe descriptions:
+- Card 1: "PPWR Article 24 Compliance Tools" - emphasize "documentation tool"
+- Card 2: "DPP-Ready Documentation" - clarify "not official certification"
+- Card 3: "Compliance QR Code Labels" - change "verification" to "information"
+- Card 5: "Professional Compliance Reports" - add "not legal certification"
+- Card 6: "Public Information Pages" - change "verification" to "information"
+
+**3. HowItWorks.tsx - Steps**
+- Step 2: Change "checks compliance" to "generates documentation for your records"
+- Step 3: Change "compliance data" to "compliance calculations"
+
+**4. Pricing.tsx - Pricing Cards**
+- Update section subtitle to mention "documentation in minutes" and "Professional tools for compliance record-keeping"
+- Update badge text: "PPWR + DPP Documentation", "Full Documentation Suite"
+- Update subtitles: "Start building compliance records", "Complete product documentation tools"
+
+**5. FAQ.tsx - Questions and Answers**
+Expand to 8+ questions with legally accurate answers:
+- Q1: Add "CompliPack provides calculation tools... We recommend consulting legal professionals"
+- Q2: Add "This is not official certification - please consult legal advisors"
+- Q3 (NEW): "Are these official certifications?" - Clear NO with bullet points
+- Q4: Add "for informational purposes" disclaimer
+- Q5: Add "informational tools only... do not constitute official regulatory compliance"
+- Q8 (NEW): "What is your liability for fines or penalties?" - Clear liability limitation
+
+**6. Footer.tsx - Add Legal Links**
+Add new "Legal" column with:
+- Terms of Service (/legal/terms)
+- Privacy Policy (/legal/privacy)
+- Cookie Policy (/legal/cookies)
+- Compliance Disclaimer (/legal/disclaimer)
+- Add disclaimer badge at bottom: "Documentation tools for EU compliance - not legal advice"
 
 ---
 
-## Implementation Phases
+## Part 2: New Legal Pages
 
-### Step 1: Foundation
-- Create ProtectedRoute component
-- Create ProductsContext and ReportsContext with mock data
-- Update App.tsx with new routes and providers
+### Route Structure
+```typescript
+// Add to App.tsx
+<Route path="/legal/terms" element={<TermsOfService />} />
+<Route path="/legal/privacy" element={<PrivacyPolicy />} />
+<Route path="/legal/cookies" element={<CookiePolicy />} />
+<Route path="/legal/disclaimer" element={<Disclaimer />} />
+```
 
-### Step 2: Layout
-- Build DashboardLayout, Sidebar, TopBar
-- Implement collapsible sidebar with animations
-- Add user dropdown with logout
+### Page Components to Create
 
-### Step 3: Dashboard Page
-- Build StatsCard with count-up animations
-- Create RecentProductsTable
-- Add quick actions section
+**1. src/pages/legal/TermsOfService.tsx**
+Full Terms of Service with 14 sections:
+1. Acceptance of Terms
+2. Description of Service (with NOT LEGAL ADVICE disclaimer)
+3. User Accounts
+4. Subscription Plans & Billing
+5. User Data & Content
+6. Intellectual Property
+7. Acceptable Use Policy
+8. Disclaimers & Limitation of Liability (CRITICAL section with "AS IS" warranty disclaimer)
+9. Modifications to Service & Terms
+10. Termination
+11. Privacy & Data Protection
+12. Dispute Resolution
+13. General Provisions
+14. Contact Information
 
-### Step 4: Products Page
-- Build ProductCard and ProductTable
-- Implement search, filter, sort, view toggle
-- Create AddProductModal with live preview
-- Create ImportCSVModal wizard
+Design: Centered column, max-width 800px, readable typography, table of contents with anchor links
 
-### Step 5: Reports Page
-- Build reports table with status badges
-- Create GenerateReportModal multi-step wizard
-- Implement report actions (view, download, copy link)
+**2. src/pages/legal/PrivacyPolicy.tsx**
+GDPR-compliant Privacy Policy with 11 sections:
+1. Introduction (with Data Controller information)
+2. Data We Collect (Account, Product, Usage, Cookies, Communications)
+3. How We Use Your Data
+4. Data Sharing & Third Parties (Supabase, Stripe, Vercel)
+5. International Data Transfers
+6. Data Retention periods
+7. Your GDPR Rights (Access, Rectification, Erasure, Portability, Object, Withdraw Consent, Complaint)
+8. Data Security measures
+9. Children's Privacy
+10. Changes to Privacy Policy
+11. Contact Us (DPO email)
 
-### Step 6: Settings Page
-- Build tabbed interface
-- Implement Account, Billing, Preferences, Integrations tabs
-- Add form handling and save functionality
+**3. src/pages/legal/CookiePolicy.tsx**
+Cookie Policy explaining:
+- What cookies are
+- Essential cookies (authentication, security)
+- Preference cookies (theme, language)
+- Analytics cookies (Plausible - optional)
+- How to manage cookies
+- Cookie consent banner behavior
 
-### Step 7: Polish
-- Add all animations (page transitions, hover effects, stagger reveals)
-- Ensure responsive design across breakpoints
-- Test all flows and interactions
+**4. src/pages/legal/Disclaimer.tsx**
+Compliance Disclaimer page with:
+- Clear statement that CompliPack is NOT legal advice
+- Explanation of what the platform does/doesn't do
+- User responsibilities
+- Liability limitations
+- Recommendation to consult professionals
+
+### Shared Component: LegalPageLayout.tsx
+- Consistent layout for all legal pages
+- Header with title and "Last Updated" date
+- Table of contents with smooth scroll
+- "Download PDF" button (generates static PDF)
+- Footer with contact information
+- Back to home link
+
+---
+
+## Part 3: Cookie Consent System
+
+### New Files
+
+**1. src/contexts/CookieConsentContext.tsx**
+Manages cookie consent state:
+```typescript
+interface CookieConsent {
+  essential: boolean;      // Always true
+  preferences: boolean;    // Theme, language
+  analytics: boolean;      // Plausible analytics
+  consentDate: number;     // Timestamp
+  version: string;         // Consent version for re-prompting
+}
+```
+
+Features:
+- Check localStorage on mount
+- Show banner if no consent or consent > 365 days old
+- Persist consent to localStorage
+- Expose consent state and update functions
+
+**2. src/components/CookieConsentBanner.tsx**
+Floating banner component:
+
+Design:
+- Fixed to bottom of screen
+- Full width on mobile, centered card on desktop (max-width 600px)
+- Glass-morphism background with backdrop blur
+- z-index: 9999 (above all content)
+- Slide-up animation on mount
+
+Content:
+- Cookie emoji icon
+- Headline: "We use cookies"
+- Explanatory text about essential and optional cookies
+- Three buttons:
+  1. "Reject Non-Essential" (outline) - Sets only essential
+  2. "Customize" (outline) - Opens modal
+  3. "Accept All" (primary blue) - Accepts all cookies
+- Link to Cookie Policy
+
+**3. src/components/CookiePreferencesModal.tsx**
+Detailed preferences modal (opened from "Customize" button):
+
+Sections with toggle switches:
+1. Essential Cookies - Always Active badge, no toggle, disabled
+2. Preference Cookies - Toggle ON/OFF, default ON
+3. Analytics Cookies - Toggle ON/OFF, default OFF
+
+Buttons:
+- "Save Preferences" (primary)
+- "Accept All" (secondary)
+- "Reject All Non-Essential" (link)
+
+---
+
+## Part 4: Terms Acceptance Modal (Signup Flow)
+
+### Modify: src/components/auth/SignupForm.tsx
+
+Add terms acceptance step:
+- After form validation, BEFORE account creation
+- Show modal with:
+  - Title: "Terms & Privacy Agreement"
+  - Two required checkboxes:
+    1. "I have read and agree to the Terms of Service" (link to /legal/terms)
+    2. "I have read and understand the Privacy Policy" (link to /legal/privacy)
+  - Fine print about liability, 18+ requirement
+  - "Cancel" and "Accept & Create Account" buttons
+  - Account creation only proceeds after both checkboxes checked
+
+### New Component: src/components/auth/TermsAcceptanceModal.tsx
+Modal with:
+- Scales emoji header
+- Scrollable abbreviated terms summary
+- Two checkbox fields with links
+- Disabled submit until both checked
+
+---
+
+## Part 5: GDPR Tools in Settings
+
+### Modify: src/pages/Settings.tsx
+
+Add new "Privacy" tab to existing 4-tab structure (now 5 tabs):
+- Account
+- Billing
+- Preferences
+- **Privacy** (NEW)
+- Integrations
+
+### Privacy Tab Content
+
+**Section 1: Cookie Preferences**
+- Reuse CookiePreferencesModal content
+- Current status badges (Analytics: Enabled/Disabled)
+- Toggle switches for preferences and analytics
+
+**Section 2: Download Your Data**
+- Headline: "Data Portability"
+- Explanation text
+- "Request Data Export" button
+- On click: Generate JSON files (account.json, products.json, reports.json)
+- Show toast: "Preparing your data export..."
+- Create downloadable ZIP file
+- Toast: "Data export ready! Check your email for download link."
+
+**Section 3: Delete Your Account**
+- Headline: "Right to Be Forgotten"
+- Warning box (red/amber) explaining consequences
+- List of what will be deleted vs retained
+- "Delete My Account" button (red/danger)
+- Opens confirmation modal:
+  - Type "DELETE" to confirm
+  - Checkbox: "I understand this is permanent"
+  - "Cancel" and "Permanently Delete Account" buttons
+- On confirm: Log out, show confirmation toast, mark account for deletion
+
+**Section 4: Privacy Rights**
+- GDPR rights explanation
+- Link to contact DPO
+- Link to EU Data Protection Authorities list
+
+---
+
+## Part 6: Navigation Updates
+
+### Modify: src/components/landing/Navbar.tsx
+
+Add to Compliance dropdown menu:
+- PPWR Article 24 Info
+- Digital Product Passport Info
+- EU Regulations Overview
+- Divider
+- Compliance Disclaimer (NEW) - links to /legal/disclaimer
+
+---
+
+## File Structure Summary
+
+### New Files to Create
+```text
+src/
+├── contexts/
+│   └── CookieConsentContext.tsx
+├── components/
+│   ├── CookieConsentBanner.tsx
+│   ├── CookiePreferencesModal.tsx
+│   └── auth/
+│       └── TermsAcceptanceModal.tsx
+└── pages/
+    └── legal/
+        ├── TermsOfService.tsx
+        ├── PrivacyPolicy.tsx
+        ├── CookiePolicy.tsx
+        ├── Disclaimer.tsx
+        └── LegalPageLayout.tsx
+```
+
+### Files to Modify
+```text
+src/
+├── App.tsx                         # Add legal routes, CookieConsentProvider
+├── components/
+│   ├── landing/
+│   │   ├── Hero.tsx               # Update copy
+│   │   ├── Features.tsx           # Update copy
+│   │   ├── HowItWorks.tsx         # Update copy
+│   │   ├── Pricing.tsx            # Update copy
+│   │   ├── FAQ.tsx                # Update/expand Q&As
+│   │   ├── Footer.tsx             # Add legal links
+│   │   └── Navbar.tsx             # Add compliance disclaimer link
+│   └── auth/
+│       └── SignupForm.tsx         # Add terms acceptance flow
+└── pages/
+    └── Settings.tsx               # Add Privacy tab
+```
+
+---
+
+## Implementation Order
+
+### Phase A: Foundation
+1. Create CookieConsentContext
+2. Create CookieConsentBanner component
+3. Create CookiePreferencesModal component
+4. Wrap App with CookieConsentProvider
+5. Add banner to App.tsx (shows conditionally)
+
+### Phase B: Legal Pages
+6. Create LegalPageLayout shared component
+7. Create TermsOfService page
+8. Create PrivacyPolicy page
+9. Create CookiePolicy page
+10. Create Disclaimer page
+11. Add routes to App.tsx
+
+### Phase C: Copywriting Updates
+12. Update Hero.tsx
+13. Update Features.tsx
+14. Update HowItWorks.tsx
+15. Update Pricing.tsx
+16. Update FAQ.tsx
+17. Update Footer.tsx with legal links
+18. Update Navbar.tsx with disclaimer link
+
+### Phase D: Auth Flow
+19. Create TermsAcceptanceModal
+20. Modify SignupForm to show modal before account creation
+
+### Phase E: Settings Privacy Tab
+21. Add Privacy tab to Settings
+22. Implement Cookie Preferences section
+23. Implement Data Export section
+24. Implement Account Deletion section
+25. Implement GDPR Rights section
+
+---
+
+## Technical Considerations
+
+### Cookie Consent Logic
+```typescript
+// On app load
+const consent = localStorage.getItem('cookieConsent');
+const consentDate = localStorage.getItem('cookieConsentDate');
+
+// Show banner if:
+// 1. No consent ever given
+// 2. Consent older than 365 days
+if (!consent || (consentDate && Date.now() - consentDate > 365 * 24 * 60 * 60 * 1000)) {
+  showBanner = true;
+}
+
+// If analytics accepted, initialize Plausible (future)
+if (consent === 'all' || (parsed && parsed.analytics)) {
+  // initPlausible();
+}
+```
+
+### Data Export Format
+```typescript
+// Generate ZIP with:
+// - account.json (user profile)
+// - products.json (all products)
+// - reports.json (all reports)
+// - export_metadata.json (timestamp, version)
+
+// Use JSZip library or browser API
+```
+
+### Terms Version Tracking
+```typescript
+// Store acceptance record locally (until backend):
+interface TermsAcceptance {
+  termsVersion: string;    // "v1.0"
+  privacyVersion: string;  // "v1.0"
+  acceptedAt: string;      // ISO timestamp
+  userId: string;
+}
+localStorage.setItem('termsAcceptance', JSON.stringify(acceptance));
+```
+
+---
+
+## Design Consistency
+
+### Legal Pages Styling
+- Serif font for readability (Lora or Georgia fallback)
+- Max-width 800px, centered
+- Large paragraph spacing (1.75em line-height)
+- Section headings with anchor links
+- Smooth scroll navigation
+- Sticky table of contents on desktop
+- Mobile-friendly accordion sections
+
+### Cookie Banner Styling
+- Glass-morphism: `backdrop-blur-xl bg-card/95 border border-border`
+- Rounded corners: `rounded-2xl`
+- Shadow: `shadow-2xl`
+- Animation: `animate-slide-up` (custom Framer Motion)
+- Buttons match existing button styles from landing page
+
+### Modal Styling
+- Consistent with existing AddProductModal and GenerateReportModal
+- Backdrop blur
+- Scale-in animation
+- Focus trap for accessibility
+
+---
+
+## Accessibility Considerations
+
+- All modals include focus trap
+- Cookie banner is keyboard navigable
+- Links to legal pages have proper aria-labels
+- Checkboxes in terms modal are properly labeled
+- Skip links for legal page content
+- Screen reader announcements for toast notifications
 
 ---
 
 ## Deliverables Summary
 
-1. Dashboard with animated stats, quick actions, recent products
-2. Products page with grid/table views, add product modal, CSV import
-3. Reports page with list and multi-step generate wizard
-4. Settings page with 4 tabs (Account, Billing, Preferences, Integrations)
-5. Protected routing with auth checks
-6. Sidebar navigation with active states and collapse
-7. Top bar with user dropdown and logout
-8. Full responsive design (mobile, tablet, desktop)
-9. Mock data for demonstration (47 products, 127 reports)
-10. Smooth Framer Motion animations throughout
+1. Cookie consent banner with "Accept All", "Reject", "Customize" options
+2. Cookie preferences modal for granular control
+3. CookieConsentContext for managing consent state
+4. Terms of Service page (14 sections)
+5. Privacy Policy page (GDPR-compliant, 11 sections)
+6. Cookie Policy page
+7. Compliance Disclaimer page
+8. LegalPageLayout shared component
+9. Updated Hero, Features, HowItWorks, Pricing, FAQ copy
+10. Footer with legal links and disclaimer badge
+11. Navbar with Compliance Disclaimer link
+12. Terms Acceptance modal in signup flow
+13. Settings Privacy tab with:
+    - Cookie preferences
+    - Data export
+    - Account deletion
+    - GDPR rights info
+14. All legal routes added to App.tsx
 
