@@ -8,37 +8,37 @@ import { Button } from '@/components/ui/button';
 const plans = [
   {
     name: 'Basic',
-    badge: 'PPWR Compliance',
+    badge: 'PPWR Compliance Tools',
     badgeColor: 'bg-success/10 text-success',
-    subtitle: 'Start compliant from day one',
+    subtitle: 'Start building compliance records',
     price: '€19',
     featured: false,
     features: [
-      { text: 'PPWR empty space compliance check', included: true },
+      { text: 'PPWR empty space calculations', included: true },
       { text: 'Manual product import (CSV or copy-paste)', included: true },
       { text: '1-page PPWR compliance PDF', included: true },
       { text: '1 unique PPWR QR code', included: true },
-      { text: 'Public verification page', included: true },
+      { text: 'Public information page', included: true },
       { text: 'Up to 50 products/month', included: true },
       { text: 'Email support', included: true },
-      { text: 'Digital Product Passport (DPP)', included: false },
+      { text: 'DPP-ready documentation', included: false },
       { text: 'Bulk CSV import', included: false },
     ],
   },
   {
     name: 'Standard',
-    badge: 'PPWR + Digital Product Passport',
+    badge: 'PPWR + DPP Documentation',
     badgeColor: 'bg-primary/10 text-primary',
-    subtitle: 'Complete product documentation',
+    subtitle: 'Complete product documentation tools',
     price: '€39',
     featured: true,
     features: [
       { text: 'Everything in Basic', included: true },
-      { text: 'Digital Product Passport (DPP)', included: true, highlight: true },
+      { text: 'DPP-ready documentation', included: true, highlight: true },
       { text: 'Manual DPP data entry', included: true },
-      { text: '2-page compliance PDF (PPWR + DPP)', included: true },
+      { text: '2-page documentation PDF (PPWR + DPP)', included: true },
       { text: '2 QR codes (PPWR + DPP)', included: true },
-      { text: 'Separate verification pages', included: true },
+      { text: 'Separate information pages', included: true },
       { text: 'Material composition tracking', included: true },
       { text: 'Carbon footprint estimates', included: true },
       { text: 'Up to 200 products/month', included: true },
@@ -47,9 +47,9 @@ const plans = [
   },
   {
     name: 'Pro',
-    badge: 'Full Compliance',
+    badge: 'Full Documentation Suite',
     badgeColor: 'bg-success/10 text-success',
-    subtitle: 'Complete EU compliance protection',
+    subtitle: 'Complete EU compliance documentation',
     price: '€69',
     featured: false,
     features: [
@@ -100,7 +100,7 @@ export function Pricing() {
             Simple, <span className="gradient-text">Transparent</span> Pricing
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Start with a 14-day free trial. No credit card required. No technical setup.
+            Start with a 14-day free trial. Upload products and generate compliance documentation in minutes. Professional tools for compliance record-keeping.
           </p>
         </motion.div>
 
