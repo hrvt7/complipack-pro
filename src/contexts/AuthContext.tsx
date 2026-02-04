@@ -1,93 +1,117 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-
-interface User {
-  id: string;
-  email: string;
-  fullName: string;
-  createdAt: string;
-}
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { recordTermsAcceptance } from '@/services/gdprService';
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   isLoading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock auth - replace with Supabase when ready
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
-    const storedUser = localStorage.getItem('complipack-user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string): Promise<{ error: string | null }> => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName
+          },
+          emailRedirectTo: redirectUrl
+        }
+      });
 
-    // Check if user exists (mock)
-    const users = JSON.parse(localStorage.getItem('complipack-users') || '[]');
-    if (users.find((u: User) => u.email === email)) {
-      return { error: 'An account with this email already exists' };
+      if (error) {
+        return { error: error.message };
+      }
+
+      // Record terms acceptance if user was created
+      if (data.user) {
+        // Use setTimeout to avoid blocking the auth callback
+        setTimeout(() => {
+          recordTermsAcceptance(data.user!.id, 'v1.0', 'v1.0');
+        }, 0);
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message || 'An unexpected error occurred' };
     }
-
-    // Create new user
-    const newUser: User = {
-      id: crypto.randomUUID(),
-      email,
-      fullName,
-      createdAt: new Date().toISOString(),
-    };
-
-    users.push({ ...newUser, password });
-    localStorage.setItem('complipack-users', JSON.stringify(users));
-    localStorage.setItem('complipack-user', JSON.stringify(newUser));
-    setUser(newUser);
-
-    return { error: null };
   };
 
   const signIn = async (email: string, password: string, rememberMe = false): Promise<{ error: string | null }> => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-    const users = JSON.parse(localStorage.getItem('complipack-users') || '[]');
-    const foundUser = users.find((u: any) => u.email === email && u.password === password);
+      if (error) {
+        return { error: error.message };
+      }
 
-    if (!foundUser) {
-      return { error: 'Incorrect email or password' };
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message || 'An unexpected error occurred' };
     }
-
-    const { password: _, ...userWithoutPassword } = foundUser;
-    
-    if (rememberMe) {
-      localStorage.setItem('complipack-user', JSON.stringify(userWithoutPassword));
-    } else {
-      sessionStorage.setItem('complipack-user', JSON.stringify(userWithoutPassword));
-    }
-    
-    setUser(userWithoutPassword);
-    return { error: null };
   };
 
   const signOut = async () => {
-    localStorage.removeItem('complipack-user');
-    sessionStorage.removeItem('complipack-user');
-    setUser(null);
+    await supabase.auth.signOut();
+  };
+
+  const resetPassword = async (email: string): Promise<{ error: string | null }> => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?mode=reset`
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message || 'An unexpected error occurred' };
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, isLoading, signUp, signIn, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

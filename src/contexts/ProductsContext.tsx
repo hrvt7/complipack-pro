@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useAuth } from './AuthContext';
+import { useProducts as useProductsHook, Product as ProductType, NewProductData } from '@/hooks/useProducts';
 
 export interface Product {
   id: string;
@@ -18,118 +20,135 @@ export interface Product {
 
 interface ProductsContextType {
   products: Product[];
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'ppwrCompliant' | 'voidSpace' | 'hasDPP'>) => Product;
-  updateProduct: (id: string, updates: Partial<Product>) => void;
-  deleteProduct: (id: string) => void;
+  loading: boolean;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'ppwrCompliant' | 'voidSpace' | 'hasDPP'>) => Promise<Product | null>;
+  updateProduct: (id: string, updates: Partial<Product>) => Promise<boolean>;
+  deleteProduct: (id: string) => Promise<boolean>;
   getProduct: (id: string) => Product | undefined;
+  importProducts: (products: Array<{
+    product_name: string;
+    length_cm: number;
+    width_cm: number;
+    height_cm: number;
+    weight_kg?: number;
+    materials?: string;
+    description?: string;
+  }>) => Promise<{ success: number; failed: number }>;
+  refreshProducts: () => Promise<void>;
 }
 
 const ProductsContext = createContext<ProductsContextType | undefined>(undefined);
 
-// Generate 47 demo products
-const generateMockProducts = (): Product[] => {
-  const productNames = [
-    'Blue Cotton T-Shirt', 'Wireless Headphones', 'Ceramic Coffee Mug', 'Organic Face Cream',
-    'Bamboo Cutting Board', 'LED Desk Lamp', 'Leather Wallet', 'Yoga Mat Pro',
-    'Stainless Steel Water Bottle', 'Wool Blend Scarf', 'Portable Charger 10000mAh', 'Natural Lip Balm Set',
-    'Wooden Photo Frame', 'Silicone Kitchen Utensils', 'Running Shoes Size 42', 'Organic Green Tea',
-    'Bluetooth Speaker Mini', 'Cotton Bed Sheets Set', 'Glass Food Container Set', 'Vitamin D Supplements',
-    'Recycled Paper Notebook', 'Stainless Steel Cookware', 'Essential Oil Diffuser', 'Linen Throw Pillow',
-    'USB-C Cable 2m', 'Organic Shampoo Bar', 'Fitness Resistance Bands', 'Ceramic Plant Pot',
-    'Smart Watch Band', 'Natural Deodorant Stick', 'Microfiber Cleaning Cloths', 'Bamboo Toothbrush Set',
-    'Insulated Lunch Box', 'Aromatherapy Candle', 'Compression Socks Set', 'Reusable Shopping Bag',
-    'Stainless Steel Razor', 'Organic Body Lotion', 'Wooden Sunglasses', 'Eco-Friendly Phone Case',
-    'Cotton Tote Bag', 'Glass Water Carafe', 'Natural Soap Bar Set', 'Bamboo Desk Organizer',
-    'Recycled Plastic Coasters', 'Organic Cotton Socks', 'Silicone Baking Mat'
-  ];
-
-  return productNames.map((name, index) => {
-    const length = Math.floor(Math.random() * 30) + 10;
-    const width = Math.floor(Math.random() * 25) + 8;
-    const height = Math.floor(Math.random() * 20) + 5;
-    const voidSpace = Math.floor(Math.random() * 55) + 5;
-    const ppwrCompliant = voidSpace < 40;
-    const hasDPP = Math.random() > 0.25;
-    
-    const createdDate = new Date();
-    createdDate.setDate(createdDate.getDate() - Math.floor(Math.random() * 90));
-    
-    const updatedDate = new Date(createdDate);
-    updatedDate.setDate(updatedDate.getDate() + Math.floor(Math.random() * 30));
-
-    return {
-      id: `prod-${String(index + 1).padStart(4, '0')}`,
-      name,
-      description: `High-quality ${name.toLowerCase()} made with sustainable materials.`,
-      length,
-      width,
-      height,
-      weight: Math.round((Math.random() * 5 + 0.1) * 100) / 100,
-      materials: ['Cotton', 'Polyester', 'Bamboo', 'Stainless Steel', 'Glass', 'Ceramic', 'Recycled Plastic'][Math.floor(Math.random() * 7)],
-      ppwrCompliant,
-      voidSpace,
-      hasDPP,
-      createdAt: createdDate.toISOString(),
-      updatedAt: updatedDate.toISOString(),
-    };
-  });
+// Helper to calculate PPWR compliance from dimensions
+const calculateCompliance = (length: number, width: number, height: number) => {
+  const productVolume = length * width * height;
+  // Simple box calculation: add 4cm to each dimension
+  const boxVolume = (length + 4) * (width + 4) * (height + 4);
+  const voidSpace = Math.round(((boxVolume - productVolume) / boxVolume) * 100);
+  const ppwrCompliant = voidSpace < 40;
+  return { voidSpace, ppwrCompliant };
 };
 
-const STORAGE_KEY = 'complipack-products';
+// Transform database product to context product
+const transformProduct = (dbProduct: ProductType): Product => {
+  const { voidSpace, ppwrCompliant } = calculateCompliance(
+    Number(dbProduct.length_cm),
+    Number(dbProduct.width_cm),
+    Number(dbProduct.height_cm)
+  );
+
+  return {
+    id: dbProduct.id,
+    name: dbProduct.name,
+    description: dbProduct.description || undefined,
+    length: Number(dbProduct.length_cm),
+    width: Number(dbProduct.width_cm),
+    height: Number(dbProduct.height_cm),
+    weight: dbProduct.weight_kg ? Number(dbProduct.weight_kg) : undefined,
+    materials: dbProduct.materials || undefined,
+    ppwrCompliant,
+    voidSpace,
+    hasDPP: true, // All products can have DPP
+    createdAt: dbProduct.created_at,
+    updatedAt: dbProduct.updated_at,
+  };
+};
 
 export function ProductsProvider({ children }: { children: React.ReactNode }) {
-  const [products, setProducts] = useState<Product[]>([]);
+  const { user } = useAuth();
+  const {
+    products: dbProducts,
+    loading,
+    addProduct: addDbProduct,
+    updateProduct: updateDbProduct,
+    deleteProduct: deleteDbProduct,
+    importProducts: importDbProducts,
+    refreshProducts
+  } = useProductsHook(user?.id);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      setProducts(JSON.parse(stored));
-    } else {
-      const mockProducts = generateMockProducts();
-      setProducts(mockProducts);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(mockProducts));
+  // Transform database products to context products
+  const products = dbProducts.map(transformProduct);
+
+  const addProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'ppwrCompliant' | 'voidSpace' | 'hasDPP'>): Promise<Product | null> => {
+    const newProduct = await addDbProduct({
+      name: productData.name,
+      description: productData.description,
+      length: productData.length,
+      width: productData.width,
+      height: productData.height,
+      weight: productData.weight,
+      materials: productData.materials,
+    });
+
+    if (newProduct) {
+      return transformProduct(newProduct);
     }
-  }, []);
-
-  const saveProducts = (newProducts: Product[]) => {
-    setProducts(newProducts);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newProducts));
+    return null;
   };
 
-  const addProduct = (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'ppwrCompliant' | 'voidSpace' | 'hasDPP'>): Product => {
-    const productVolume = productData.length * productData.width * productData.height;
-    const boxVolume = (productData.length + 4) * (productData.width + 4) * (productData.height + 4);
-    const voidSpace = Math.round(((boxVolume - productVolume) / boxVolume) * 100);
-    
-    const newProduct: Product = {
-      ...productData,
-      id: `prod-${String(products.length + 1).padStart(4, '0')}`,
-      ppwrCompliant: voidSpace < 40,
-      voidSpace,
-      hasDPP: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    saveProducts([newProduct, ...products]);
-    return newProduct;
+  const updateProduct = async (id: string, updates: Partial<Product>): Promise<boolean> => {
+    return updateDbProduct(id, {
+      name: updates.name,
+      description: updates.description,
+      length: updates.length,
+      width: updates.width,
+      height: updates.height,
+      weight: updates.weight,
+      materials: updates.materials,
+    });
   };
 
-  const updateProduct = (id: string, updates: Partial<Product>) => {
-    const updated = products.map(p => 
-      p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
-    );
-    saveProducts(updated);
+  const deleteProduct = async (id: string): Promise<boolean> => {
+    return deleteDbProduct(id);
   };
 
-  const deleteProduct = (id: string) => {
-    saveProducts(products.filter(p => p.id !== id));
+  const getProduct = (id: string): Product | undefined => {
+    return products.find(p => p.id === id);
   };
 
-  const getProduct = (id: string) => products.find(p => p.id === id);
+  const importProducts = async (csvProducts: Array<{
+    product_name: string;
+    length_cm: number;
+    width_cm: number;
+    height_cm: number;
+    weight_kg?: number;
+    materials?: string;
+    description?: string;
+  }>): Promise<{ success: number; failed: number }> => {
+    return importDbProducts(csvProducts);
+  };
 
   return (
-    <ProductsContext.Provider value={{ products, addProduct, updateProduct, deleteProduct, getProduct }}>
+    <ProductsContext.Provider value={{
+      products,
+      loading,
+      addProduct,
+      updateProduct,
+      deleteProduct,
+      getProduct,
+      importProducts,
+      refreshProducts
+    }}>
       {children}
     </ProductsContext.Provider>
   );
