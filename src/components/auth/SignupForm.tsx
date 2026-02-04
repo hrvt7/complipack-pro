@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { TermsAcceptanceModal } from './TermsAcceptanceModal';
+import { lovable } from '@/integrations/lovable';
 
 const signupSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -28,11 +29,36 @@ export function SignupForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [pendingFormData, setPendingFormData] = useState<SignupFormData | null>(null);
   const { signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const handleAppleSignIn = async () => {
+    setIsAppleLoading(true);
+    try {
+      const { error } = await lovable.auth.signInWithOAuth("apple", {
+        redirect_uri: window.location.origin,
+      });
+      if (error) {
+        toast({
+          title: 'Apple Sign-In Failed',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAppleLoading(false);
+    }
+  };
 
   const {
     register,
@@ -185,7 +211,7 @@ export function SignupForm() {
       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
         <Button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || isAppleLoading}
           className="w-full h-12 btn-gradient-blue text-white rounded-xl shadow-lg hover:shadow-glow transition-shadow"
         >
           {isLoading ? (
@@ -195,6 +221,38 @@ export function SignupForm() {
             </>
           ) : (
             'Create Account'
+          )}
+        </Button>
+      </motion.div>
+
+      {/* Divider */}
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="bg-background px-4 text-muted-foreground">or continue with</span>
+        </div>
+      </div>
+
+      {/* Apple Sign-In Button */}
+      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={isLoading || isAppleLoading}
+          onClick={handleAppleSignIn}
+          className="w-full h-12 rounded-xl border-2 hover:bg-accent transition-colors"
+        >
+          {isAppleLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <>
+              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+              </svg>
+              Continue with Apple
+            </>
           )}
         </Button>
       </motion.div>
