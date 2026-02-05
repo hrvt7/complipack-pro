@@ -108,7 +108,7 @@ export function LoginForm() {
           title: 'Welcome back!',
           description: 'Redirecting to dashboard...',
         });
-        setTimeout(() => navigate('/'), 1000);
+        setTimeout(() => navigate('/dashboard'), 1000);
       }
     } catch (err) {
       toast({
