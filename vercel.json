@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://ppwr-dpp-pack.vercel.app/api/$1"
+    }
+  ]
+}
