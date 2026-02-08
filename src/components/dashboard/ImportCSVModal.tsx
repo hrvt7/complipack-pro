@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Download, FileText, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { Upload, Download, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -19,7 +19,11 @@ import {
 } from '@/components/ui/table';
 import { useProducts } from '@/contexts/ProductsContext';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import {
+  commitCsvImport,
+  previewCsvImport,
+  type CsvImportRow,
+} from '@/api/csvImport';
 
 interface ImportCSVModalProps {
   open: boolean;
@@ -28,23 +32,41 @@ interface ImportCSVModalProps {
 
 type Step = 'instructions' | 'upload' | 'preview' | 'importing' | 'complete';
 
-interface ParsedRow {
-  product_name: string;
-  length_cm: number;
-  width_cm: number;
-  height_cm: number;
-  weight_kg?: number;
-  materials?: string;
-  description?: string;
-  isValid: boolean;
-  errors: string[];
-}
+const formatBackendError = (error: unknown): string => {
+  const fallback = error instanceof Error ? error.message : 'Unexpected error';
+  if (!error || typeof error !== 'object') {
+    return fallback;
+  }
+
+  const err = error as { message?: string; details?: any };
+  const details = err.details;
+
+  if (!details || typeof details !== 'object') {
+    return fallback;
+  }
+
+  const message = details.message ?? err.message ?? fallback;
+  const code = details.code ? `code: ${details.code}` : null;
+  const extra = details.details ?? details.error ?? details.meta ?? null;
+  const extraText =
+    extra !== null && extra !== undefined
+      ? `details: ${typeof extra === 'string' ? extra : JSON.stringify(extra)}`
+      : null;
+
+  return [message, code, extraText].filter(Boolean).join(' | ');
+};
 
 export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
-  const { addProduct } = useProducts();
+  const { refreshProducts } = useProducts();
   const { toast } = useToast();
   const [step, setStep] = useState<Step>('instructions');
-  const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
+  const [parsedData, setParsedData] = useState<CsvImportRow[]>([]);
+  const [previewSummary, setPreviewSummary] = useState({
+    validCount: 0,
+    invalidCount: 0,
+    errors: [] as string[],
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importProgress, setImportProgress] = useState(0);
   const [importResults, setImportResults] = useState({ success: 0, failed: 0 });
 
@@ -53,40 +75,34 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
     e.stopPropagation();
   }, []);
 
-  const parseCSV = (content: string): ParsedRow[] => {
-    const lines = content.split('\n').filter(line => line.trim());
-    if (lines.length < 2) return [];
+  const handleFile = useCallback(
+    async (file: File) => {
+      setSelectedFile(file);
 
-    const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
-    
-    return lines.slice(1).map(line => {
-      const values = line.split(',').map(v => v.trim());
-      const row: any = {};
-      
-      headers.forEach((header, index) => {
-        row[header] = values[index] || '';
-      });
-
-      const errors: string[] = [];
-      
-      if (!row.product_name) errors.push('Missing product name');
-      if (!row.length_cm || isNaN(Number(row.length_cm))) errors.push('Invalid length');
-      if (!row.width_cm || isNaN(Number(row.width_cm))) errors.push('Invalid width');
-      if (!row.height_cm || isNaN(Number(row.height_cm))) errors.push('Invalid height');
-
-      return {
-        product_name: row.product_name || '',
-        length_cm: Number(row.length_cm) || 0,
-        width_cm: Number(row.width_cm) || 0,
-        height_cm: Number(row.height_cm) || 0,
-        weight_kg: row.weight_kg ? Number(row.weight_kg) : undefined,
-        materials: row.materials,
-        description: row.description,
-        isValid: errors.length === 0,
-        errors,
-      };
-    });
-  };
+      try {
+        const preview = await previewCsvImport(file);
+        setParsedData(preview.rows);
+        setPreviewSummary({
+          validCount: preview.validCount,
+          invalidCount: preview.invalidCount,
+          errors: preview.errors,
+        });
+        setStep('preview');
+      } catch (error) {
+        console.error('CSV preview failed:', error);
+        const message = formatBackendError(error);
+        toast({
+          title: 'CSV preview failed',
+          description: message,
+          variant: 'destructive',
+        });
+        setParsedData([]);
+        setPreviewSummary({ validCount: 0, invalidCount: 0, errors: [] });
+        setStep('upload');
+      }
+    },
+    [toast]
+  );
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -94,61 +110,59 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
     
     const file = e.dataTransfer.files[0];
     if (file && file.name.endsWith('.csv')) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const content = event.target?.result as string;
-        const parsed = parseCSV(content);
-        setParsedData(parsed);
-        setStep('preview');
-      };
-      reader.readAsText(file);
+      void handleFile(file);
+    } else {
+      toast({
+        title: 'Invalid file',
+        description: 'Please upload a .csv file.',
+        variant: 'destructive',
+      });
     }
-  }, []);
+  }, [handleFile, toast]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.name.endsWith('.csv')) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const content = event.target?.result as string;
-        const parsed = parseCSV(content);
-        setParsedData(parsed);
-        setStep('preview');
-      };
-      reader.readAsText(file);
+      void handleFile(file);
+    } else if (file) {
+      toast({
+        title: 'Invalid file',
+        description: 'Please upload a .csv file.',
+        variant: 'destructive',
+      });
     }
   };
 
   const handleImport = async () => {
-    setStep('importing');
-    const validRows = parsedData.filter(row => row.isValid);
-    let success = 0;
-    let failed = 0;
-
-    for (let i = 0; i < validRows.length; i++) {
-      const row = validRows[i];
-      
-      try {
-        addProduct({
-          name: row.product_name,
-          description: row.description,
-          length: row.length_cm,
-          width: row.width_cm,
-          height: row.height_cm,
-          weight: row.weight_kg,
-          materials: row.materials,
-        });
-        success++;
-      } catch {
-        failed++;
-      }
-
-      setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
-      await new Promise(resolve => setTimeout(resolve, 50));
+    if (!selectedFile) {
+      toast({
+        title: 'No CSV selected',
+        description: 'Please upload a CSV file first.',
+        variant: 'destructive',
+      });
+      return;
     }
 
-    setImportResults({ success, failed: failed + parsedData.filter(r => !r.isValid).length });
-    setStep('complete');
+    setStep('importing');
+    setImportProgress(20);
+
+    try {
+      const result = await commitCsvImport(selectedFile);
+      setImportProgress(100);
+      setImportResults({ success: result.success, failed: result.failed });
+      await refreshProducts();
+      setStep('complete');
+    } catch (error) {
+      console.error('CSV import failed:', error);
+      const message = formatBackendError(error);
+      toast({
+        title: 'Import failed',
+        description: message,
+        variant: 'destructive',
+      });
+      setImportProgress(0);
+      setStep('preview');
+    }
   };
 
   const downloadTemplate = () => {
@@ -165,13 +179,15 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
   const handleClose = () => {
     setStep('instructions');
     setParsedData([]);
+    setPreviewSummary({ validCount: 0, invalidCount: 0, errors: [] });
+    setSelectedFile(null);
     setImportProgress(0);
     setImportResults({ success: 0, failed: 0 });
     onClose();
   };
 
-  const validCount = parsedData.filter(r => r.isValid).length;
-  const invalidCount = parsedData.filter(r => !r.isValid).length;
+  const validCount = previewSummary.validCount;
+  const invalidCount = previewSummary.invalidCount;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
