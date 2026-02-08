@@ -1,11 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
-
-if (!BACKEND_BASE_URL) {
-  throw new Error("Missing VITE_BACKEND_BASE_URL env variable");
-}
-
 async function getBearerToken(): Promise<string> {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw new Error(error.message);
@@ -33,11 +27,18 @@ export async function backendFetch<T>(
     body = JSON.stringify(options.json);
   }
 
-  const res = await fetch(`${BACKEND_BASE_URL}${path}`, {
-    ...options,
-    headers,
-    body,
-  });
+  // If VITE_BACKEND_BASE_URL is set, call the backend directly (not the Vite dev server)
+  const base = import.meta.env.VITE_BACKEND_BASE_URL as string | undefined;
+
+  const url =
+    base && base.startsWith("http")
+      ? new URL(
+          path.replace(/^\//, ""),
+          base.endsWith("/") ? base : base + "/"
+        ).toString()
+      : path;
+
+  const res = await fetch(url, { ...options, headers, body });
 
   if (!res.ok) {
     let payload: any = null;
