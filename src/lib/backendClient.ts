@@ -1,5 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
+
+if (!BACKEND_BASE_URL) {
+  throw new Error("Missing VITE_BACKEND_BASE_URL env variable");
+}
+
 async function getBearerToken(): Promise<string> {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw new Error(error.message);
@@ -27,7 +33,11 @@ export async function backendFetch<T>(
     body = JSON.stringify(options.json);
   }
 
-  const res = await fetch(path, { ...options, headers, body });
+  const res = await fetch(`${BACKEND_BASE_URL}${path}`, {
+    ...options,
+    headers,
+    body,
+  });
 
   if (!res.ok) {
     let payload: any = null;
@@ -45,3 +55,4 @@ export async function backendFetch<T>(
   if (res.status === 204) return {} as T;
   return (await res.json()) as T;
 }
+
