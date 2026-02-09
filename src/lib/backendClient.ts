@@ -2,17 +2,17 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Resolve backend base URL.
- * Vercel / prod: VITE_BACKEND_URL = https://ppwr-dpp-pack.vercel.app
- * Local dev fallback: http://localhost:3000
+ * Vercel / prod: VITE_BACKEND_BASE_URL = https://ppwr-dpp-pack.vercel.app
+ * Local dev fallback: relative paths (Vite dev server proxy)
  */
 function getBackendBaseUrl(): string {
-  const base = import.meta.env.VITE_BACKEND_URL as string | undefined;
+  const base = import.meta.env.VITE_BACKEND_BASE_URL as string | undefined;
 
   if (base && base.startsWith("http")) {
     return base.endsWith("/") ? base : base + "/";
   }
 
-  return "http://localhost:3000/";
+  return "";
 }
 
 /**
@@ -37,8 +37,13 @@ async function getBearerToken(): Promise<string> {
  */
 function buildUrl(path: string): string {
   const base = getBackendBaseUrl();
-  const cleanPath = path.replace(/^\//, "");
-  return new URL(cleanPath, base).toString();
+  if (!base) {
+    return path;
+  }
+
+  const cleanBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${cleanBase}${cleanPath}`;
 }
 
 /**
