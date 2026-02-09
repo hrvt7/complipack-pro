@@ -23,8 +23,13 @@ import {
 } from '@/components/ui/dialog';
 import { useProducts, Product } from '@/contexts/ProductsContext';
 import { useReports } from '@/contexts/ReportsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import {
+  finalizeComplianceReport,
+  generateComplianceReport,
+} from '@/api/dpp';
 
 interface GenerateReportModalProps {
   open: boolean;
@@ -33,10 +38,19 @@ interface GenerateReportModalProps {
 }
 
 type Step = 'select' | 'options' | 'generating' | 'success';
+type DppResult = {
+  reportId?: string;
+  pdfUrl?: string;
+  qrUrl?: string;
+  publicDppUrl?: string;
+  carbonLightTotal?: number | string;
+  disclaimer?: string;
+};
 
 export function GenerateReportModal({ open, onClose, preselectedProductId }: GenerateReportModalProps) {
   const { products } = useProducts();
   const { addReport } = useReports();
+  const { user } = useAuth();
   const { toast } = useToast();
   
   const [step, setStep] = useState<Step>('select');
@@ -52,6 +66,7 @@ export function GenerateReportModal({ open, onClose, preselectedProductId }: Gen
     companyLogo: false,
   });
   const [generatedReport, setGeneratedReport] = useState<{ id: string } | null>(null);
+  const [dppResult, setDppResult] = useState<DppResult | null>(null);
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -75,30 +90,75 @@ export function GenerateReportModal({ open, onClose, preselectedProductId }: Gen
 
   const handleGenerate = async () => {
     setStep('generating');
-    
-    // Simulate report generation
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // Create reports for each selected product
-    selectedProducts.forEach(productId => {
-      const product = products.find(p => p.id === productId);
-      if (product) {
-        addReport({
-          productId,
-          productName: product.name,
-          type: reportType,
-          status: 'complete',
+    setDppResult(null);
+
+    try {
+      if (reportType === 'dpp' || reportType === 'combined') {
+        const primaryProductId = selectedProducts[0];
+        const product = products.find(p => p.id === primaryProductId);
+
+        if (!primaryProductId || !product) {
+          throw new Error('Please select at least one product.');
+        }
+        if (!user?.id) {
+          throw new Error('Please sign in again to generate a DPP.');
+        }
+
+        const generated = await generateComplianceReport({
+          product_id: primaryProductId,
+        });
+        const reportId =
+          generated.report?.id || generated.report_id || generated.id;
+
+        if (!reportId) {
+          throw new Error('Missing report_id from backend response.');
+        }
+
+        const finalized = await finalizeComplianceReport({
+          report_id: reportId,
+          actor_id: user.id,
+        });
+
+        const reportPayload = finalized.report ?? finalized;
+        setDppResult({
+          reportId,
+          pdfUrl: reportPayload.pdf_url,
+          qrUrl: reportPayload.qr_url,
+          publicDppUrl: reportPayload.public_dpp_url,
+          carbonLightTotal: reportPayload.carbon_light_total,
+          disclaimer: reportPayload.disclaimer,
         });
       }
-    });
 
-    setGeneratedReport({ id: `RPT-${Date.now()}` });
-    setStep('success');
-    
-    toast({
-      title: '✅ Report generated successfully!',
-      description: `${selectedProducts.length} report(s) have been created.`,
-    });
+      // Create reports for each selected product (local history)
+      selectedProducts.forEach(productId => {
+        const product = products.find(p => p.id === productId);
+        if (product) {
+          addReport({
+            productId,
+            productName: product.name,
+            type: reportType,
+            status: 'complete',
+          });
+        }
+      });
+
+      setGeneratedReport({ id: `RPT-${Date.now()}` });
+      setStep('success');
+
+      toast({
+        title: '✅ Report generated successfully!',
+        description: `${selectedProducts.length} report(s) have been created.`,
+      });
+    } catch (error: any) {
+      console.error('Failed to generate report:', error);
+      setStep('options');
+      toast({
+        title: 'Report generation failed',
+        description: error?.message ?? 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleClose = () => {
@@ -107,6 +167,7 @@ export function GenerateReportModal({ open, onClose, preselectedProductId }: Gen
     setSearchQuery('');
     setReportType('combined');
     setGeneratedReport(null);
+    setDppResult(null);
     onClose();
   };
 
@@ -335,18 +396,67 @@ export function GenerateReportModal({ open, onClose, preselectedProductId }: Gen
                   <CheckCircle className="h-20 w-20 mx-auto text-emerald-500" />
                 </motion.div>
                 
-                <div className="space-y-2">
-                  <p className="text-xl font-semibold">Report Generated!</p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedProducts.length} report(s) have been created
-                  </p>
-                </div>
+              <div className="space-y-2">
+                <p className="text-xl font-semibold">Report Generated!</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedProducts.length} report(s) have been created
+                </p>
+              </div>
 
-                <div className="flex flex-col gap-3 max-w-xs mx-auto">
-                  <Button className="w-full gap-2">
-                    <Download className="h-4 w-4" />
-                    Download PDF
-                  </Button>
+              {dppResult && (
+                <div className="rounded-lg border border-border p-4 text-left space-y-3">
+                  <div className="text-sm font-medium">DPP Output</div>
+                  <div className="flex flex-wrap gap-2">
+                    {dppResult.pdfUrl && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(dppResult.pdfUrl, '_blank')}
+                      >
+                        Open PDF
+                      </Button>
+                    )}
+                    {dppResult.qrUrl && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(dppResult.qrUrl, '_blank')}
+                      >
+                        Open QR
+                      </Button>
+                    )}
+                    {dppResult.publicDppUrl && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(dppResult.publicDppUrl, '_blank')}
+                      >
+                        Open Public DPP
+                      </Button>
+                    )}
+                  </div>
+                  {dppResult.carbonLightTotal !== undefined && (
+                    <div className="text-xs text-muted-foreground">
+                      Carbon total: {dppResult.carbonLightTotal}
+                    </div>
+                  )}
+                  {dppResult.disclaimer && (
+                    <div className="text-xs text-muted-foreground">
+                      {dppResult.disclaimer}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 max-w-xs mx-auto">
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => dppResult?.pdfUrl && window.open(dppResult.pdfUrl, '_blank')}
+                  disabled={!dppResult?.pdfUrl}
+                >
+                  <Download className="h-4 w-4" />
+                  Download PDF
+                </Button>
                   <Button variant="outline" onClick={handleClose}>
                     Done
                   </Button>
