@@ -60,6 +60,36 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Environment Setup
+
+Create a `.env.local` file (or copy `.env.local.example`) with:
+
+```sh
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_BACKEND_BASE_URL=http://localhost:3000
+```
+
+`VITE_BACKEND_BASE_URL` should point to your backend dev URL or the deployed Vercel backend URL.
+
+## Local Development (MVP Golden Flow)
+
+1. Set `VITE_BACKEND_BASE_URL` to your backend dev URL (for example `http://localhost:3000`) or Vercel backend URL.
+2. Install dependencies:
+   ```sh
+   npm install
+   ```
+3. Start the frontend:
+   ```sh
+   npm run dev
+   ```
+4. Test the golden flow:
+   - Login
+   - Create Shop (copy API key)
+   - Import CSV products
+   - Generate DPP and open the PDF/public DPP link
+   - Export EPR (XLSX/PDF)
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.

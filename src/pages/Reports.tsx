@@ -50,6 +50,7 @@ import { GenerateReportModal } from '@/components/dashboard/GenerateReportModal'
 import { useReports, Report } from '@/contexts/ReportsContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { exportEpr } from '@/api/epr';
 
 type DateRange = 'all' | 'today' | 'week' | 'month';
 type ReportTypeFilter = 'all' | 'ppwr' | 'dpp' | 'combined';
@@ -79,6 +80,10 @@ export default function Reports() {
   const [generateReportOpen, setGenerateReportOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
+  const [eprExporting, setEprExporting] = useState(false);
+  const [eprStart, setEprStart] = useState('');
+  const [eprEnd, setEprEnd] = useState('');
+  const [eprCountry, setEprCountry] = useState('HU');
 
   const filteredReports = useMemo(() => {
     let result = [...reports];
@@ -152,6 +157,40 @@ export default function Reports() {
     setDeleteDialogOpen(false);
   };
 
+  const handleExportEpr = async () => {
+    setEprExporting(true);
+    try {
+      const payload = {
+        period_start: eprStart || undefined,
+        period_end: eprEnd || undefined,
+        country_code: eprCountry || undefined,
+      };
+
+      const result = await exportEpr(payload);
+
+      if (result.xlsx_url) {
+        window.open(result.xlsx_url, '_blank');
+      }
+      if (result.pdf_url) {
+        window.open(result.pdf_url, '_blank');
+      }
+
+      toast({
+        title: 'EPR export ready',
+        description: 'Your EPR export has been generated.',
+      });
+    } catch (error: any) {
+      console.error('EPR export failed:', error);
+      toast({
+        title: 'EPR export failed',
+        description: error?.message ?? 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEprExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -216,6 +255,43 @@ export default function Reports() {
             <SelectItem value="failed">Failed</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* EPR Export */}
+      <div className="rounded-lg border border-border p-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Period Start</label>
+            <Input
+              placeholder="YYYY-MM-DD"
+              value={eprStart}
+              onChange={(e) => setEprStart(e.target.value)}
+              className="w-full sm:w-[140px]"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Period End</label>
+            <Input
+              placeholder="YYYY-MM-DD"
+              value={eprEnd}
+              onChange={(e) => setEprEnd(e.target.value)}
+              className="w-full sm:w-[140px]"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Country</label>
+            <Input
+              placeholder="HU"
+              value={eprCountry}
+              onChange={(e) => setEprCountry(e.target.value)}
+              className="w-full sm:w-[100px]"
+            />
+          </div>
+        </div>
+        <Button onClick={handleExportEpr} disabled={eprExporting} className="gap-2">
+          <Download className="h-4 w-4" />
+          {eprExporting ? 'Exporting...' : 'Export EPR'}
+        </Button>
       </div>
 
       {/* Reports Table */}
