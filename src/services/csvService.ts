@@ -71,45 +71,60 @@ const validateRow = (row: Record<string, string>, rowIndex: number): ParsedProdu
 // Parse CSV file
 export const parseCSV = (file: File): Promise<CSVParseResult> => {
   return new Promise((resolve, reject) => {
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (header) => header.toLowerCase().trim(),
-      complete: (results) => {
-        const globalErrors: string[] = [];
-
-        // Check if file has data
-        if (!results.data || results.data.length === 0) {
-          reject(new Error('CSV file is empty or has no data rows'));
-          return;
-        }
-
-        // Check for required columns
-        const headers = Object.keys(results.data[0] || {});
-        const missingColumns = requiredColumns.filter(col => !headers.includes(col));
-        
-        if (missingColumns.length > 0) {
-          reject(new Error(`Missing required columns: ${missingColumns.join(', ')}`));
-          return;
-        }
-
-        // Parse and validate each row
-        const parsedData = results.data.map((row, index) => validateRow(row, index));
-
-        const validCount = parsedData.filter(r => r.isValid).length;
-        const invalidCount = parsedData.filter(r => !r.isValid).length;
-
-        resolve({
-          data: parsedData,
-          validCount,
-          invalidCount,
-          errors: globalErrors
-        });
-      },
-      error: (error) => {
-        reject(new Error(`Failed to parse CSV: ${error.message}`));
+    // Read file as text first to strip BOM and normalize
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      let text = e.target?.result as string;
+      if (!text || text.trim().length === 0) {
+        reject(new Error('CSV file is empty'));
+        return;
       }
-    });
+
+      // Strip BOM if present
+      if (text.charCodeAt(0) === 0xFEFF) {
+        text = text.slice(1);
+      }
+
+      const results = Papa.parse<Record<string, string>>(text, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (header) => header.replace(/^\uFEFF/, '').toLowerCase().trim(),
+      });
+
+      const globalErrors: string[] = [];
+
+      // Check if file has data
+      if (!results.data || results.data.length === 0) {
+        reject(new Error('CSV file is empty or has no data rows'));
+        return;
+      }
+
+      // Check for required columns
+      const headers = Object.keys(results.data[0] || {});
+      const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+      
+      if (missingColumns.length > 0) {
+        reject(new Error(`Missing required columns: ${missingColumns.join(', ')}. Found columns: ${headers.join(', ')}`));
+        return;
+      }
+
+      // Parse and validate each row
+      const parsedData = results.data.map((row, index) => validateRow(row, index));
+
+      const validCount = parsedData.filter(r => r.isValid).length;
+      const invalidCount = parsedData.filter(r => !r.isValid).length;
+
+      resolve({
+        data: parsedData,
+        validCount,
+        invalidCount,
+        errors: globalErrors
+      });
+    };
+    reader.onerror = () => {
+      reject(new Error('Failed to read CSV file'));
+    };
+    reader.readAsText(file, 'UTF-8');
   });
 };
 
@@ -118,7 +133,7 @@ export const parseCSVText = (content: string): CSVParseResult => {
   const result = Papa.parse<Record<string, string>>(content, {
     header: true,
     skipEmptyLines: true,
-    transformHeader: (header) => header.toLowerCase().trim()
+    transformHeader: (header) => header.replace(/^\uFEFF/, '').toLowerCase().trim()
   });
 
   if (!result.data || result.data.length === 0) {

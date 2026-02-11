@@ -19,11 +19,7 @@ import {
 } from '@/components/ui/table';
 import { useProducts } from '@/contexts/ProductsContext';
 import { useToast } from '@/hooks/use-toast';
-import {
-  commitCsvImport,
-  previewCsvImport,
-  type CsvImportRow,
-} from '@/api/csvImport';
+import { parseCSV, downloadCSVTemplate, type ParsedProduct } from '@/services/csvService';
 
 interface ImportCSVModalProps {
   open: boolean;
@@ -32,40 +28,13 @@ interface ImportCSVModalProps {
 
 type Step = 'instructions' | 'upload' | 'preview' | 'importing' | 'complete';
 
-const formatBackendError = (error: unknown): string => {
-  const fallback = error instanceof Error ? error.message : 'Unexpected error';
-  if (!error || typeof error !== 'object') {
-    return fallback;
-  }
-
-  const err = error as { message?: string; details?: any };
-  const details = err.details;
-
-  if (!details || typeof details !== 'object') {
-    return fallback;
-  }
-
-  const message = details.message ?? err.message ?? fallback;
-  const code = details.code ? `code: ${details.code}` : null;
-  const extra = details.details ?? details.error ?? details.meta ?? null;
-  const extraText =
-    extra !== null && extra !== undefined
-      ? `details: ${typeof extra === 'string' ? extra : JSON.stringify(extra)}`
-      : null;
-
-  return [message, code, extraText].filter(Boolean).join(' | ');
-};
-
 export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
-  const { refreshProducts } = useProducts();
+  const { importProducts } = useProducts();
   const { toast } = useToast();
   const [step, setStep] = useState<Step>('instructions');
-  const [parsedData, setParsedData] = useState<CsvImportRow[]>([]);
-  const [previewSummary, setPreviewSummary] = useState({
-    validCount: 0,
-    invalidCount: 0,
-    errors: [] as string[],
-  });
+  const [parsedData, setParsedData] = useState<ParsedProduct[]>([]);
+  const [validCount, setValidCount] = useState(0);
+  const [invalidCount, setInvalidCount] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importProgress, setImportProgress] = useState(0);
   const [importResults, setImportResults] = useState({ success: 0, failed: 0 });
@@ -80,24 +49,23 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
       setSelectedFile(file);
 
       try {
-        const preview = await previewCsvImport(file);
-        setParsedData(preview.rows);
-        setPreviewSummary({
-          validCount: preview.validCount,
-          invalidCount: preview.invalidCount,
-          errors: preview.errors,
-        });
+        // Parse CSV locally using PapaParse - no backend needed
+        const result = await parseCSV(file);
+        setParsedData(result.data);
+        setValidCount(result.validCount);
+        setInvalidCount(result.invalidCount);
         setStep('preview');
       } catch (error) {
-        console.error('CSV preview failed:', error);
-        const message = formatBackendError(error);
+        console.error('CSV parse failed:', error);
+        const message = error instanceof Error ? error.message : 'Failed to parse CSV file';
         toast({
-          title: 'CSV preview failed',
+          title: 'CSV parse failed',
           description: message,
           variant: 'destructive',
         });
         setParsedData([]);
-        setPreviewSummary({ validCount: 0, invalidCount: 0, errors: [] });
+        setValidCount(0);
+        setInvalidCount(0);
         setStep('upload');
       }
     },
@@ -134,27 +102,49 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
   };
 
   const handleImport = async () => {
-    if (!selectedFile) {
+    const validRows = parsedData.filter((row) => row.isValid);
+    if (validRows.length === 0) {
       toast({
-        title: 'No CSV selected',
-        description: 'Please upload a CSV file first.',
+        title: 'No valid rows',
+        description: 'There are no valid products to import.',
         variant: 'destructive',
       });
       return;
     }
 
     setStep('importing');
-    setImportProgress(20);
+    setImportProgress(10);
 
     try {
-      const result = await commitCsvImport(selectedFile);
+      // Convert to the format expected by importProducts (direct Supabase insert)
+      const productsToImport = validRows.map((row) => ({
+        product_name: row.product_name,
+        length_cm: row.length_cm,
+        width_cm: row.width_cm,
+        height_cm: row.height_cm,
+        weight_kg: row.weight_kg,
+        materials: row.materials,
+        description: row.description,
+      }));
+
+      setImportProgress(30);
+
+      const result = await importProducts(productsToImport);
+
       setImportProgress(100);
       setImportResults({ success: result.success, failed: result.failed });
-      await refreshProducts();
       setStep('complete');
+
+      if (result.failed > 0) {
+        toast({
+          title: 'Import partially complete',
+          description: `${result.success} imported, ${result.failed} failed.`,
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
       console.error('CSV import failed:', error);
-      const message = formatBackendError(error);
+      const message = error instanceof Error ? error.message : 'Import failed';
       toast({
         title: 'Import failed',
         description: message,
@@ -165,29 +155,16 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
     }
   };
 
-  const downloadTemplate = () => {
-    const template = 'product_name,length_cm,width_cm,height_cm,weight_kg,materials,description\nBlue Cotton T-Shirt,25,20,5,0.3,100% Cotton,Classic fit t-shirt\nCeramic Coffee Mug,12,10,10,0.4,Ceramic,350ml capacity';
-    const blob = new Blob([template], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'complipack_import_template.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const handleClose = () => {
     setStep('instructions');
     setParsedData([]);
-    setPreviewSummary({ validCount: 0, invalidCount: 0, errors: [] });
+    setValidCount(0);
+    setInvalidCount(0);
     setSelectedFile(null);
     setImportProgress(0);
     setImportResults({ success: 0, failed: 0 });
     onClose();
   };
-
-  const validCount = previewSummary.validCount;
-  const invalidCount = previewSummary.invalidCount;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -222,7 +199,7 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
                 </ul>
               </div>
 
-              <Button variant="outline" onClick={downloadTemplate} className="w-full gap-2">
+              <Button variant="outline" onClick={downloadCSVTemplate} className="w-full gap-2">
                 <Download className="h-4 w-4" />
                 Download CSV Template
               </Button>
@@ -292,6 +269,11 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
                     <span>{invalidCount} with errors</span>
                   </div>
                 )}
+                {selectedFile && (
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {selectedFile.name}
+                  </span>
+                )}
               </div>
 
               <div className="max-h-[300px] overflow-auto rounded-lg border border-border">
@@ -311,7 +293,16 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
                           {row.isValid ? (
                             <CheckCircle className="h-4 w-4 text-emerald-500" />
                           ) : (
-                            <AlertCircle className="h-4 w-4 text-destructive" />
+                            <div className="group relative">
+                              <AlertCircle className="h-4 w-4 text-destructive" />
+                              {row.errors.length > 0 && (
+                                <div className="absolute left-6 top-0 hidden group-hover:block bg-popover border border-border rounded-md p-2 text-xs shadow-md z-10 w-48">
+                                  {row.errors.map((err, i) => (
+                                    <p key={i} className="text-destructive">{err}</p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </TableCell>
                         <TableCell className="font-medium">{row.product_name || '-'}</TableCell>
