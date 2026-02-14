@@ -11,6 +11,11 @@ export interface Product {
   height: number;
   weight?: number;
   materials?: string;
+  packLength?: number;
+  packWidth?: number;
+  packHeight?: number;
+  packagingConfirmed: boolean;
+  packagingConfirmedAt?: string;
   ppwrCompliant: boolean;
   voidSpace: number;
   hasDPP: boolean;
@@ -21,7 +26,7 @@ export interface Product {
 interface ProductsContextType {
   products: Product[];
   loading: boolean;
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'ppwrCompliant' | 'voidSpace' | 'hasDPP'>) => Promise<Product | null>;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'ppwrCompliant' | 'voidSpace' | 'hasDPP' | 'packagingConfirmed' | 'packagingConfirmedAt'>) => Promise<Product | null>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<boolean>;
   deleteProduct: (id: string) => Promise<boolean>;
   getProduct: (id: string) => Product | undefined;
@@ -33,20 +38,33 @@ interface ProductsContextType {
     weight_kg?: number;
     materials?: string;
     description?: string;
+    pack_length_cm?: number;
+    pack_width_cm?: number;
+    pack_height_cm?: number;
   }>) => Promise<{ success: number; failed: number }>;
+  updatePackaging: (id: string, packLength: number, packWidth: number, packHeight: number) => Promise<boolean>;
+  confirmPackaging: (ids: string[]) => Promise<boolean>;
   refreshProducts: () => Promise<void>;
 }
 
+import { calculateVoidSpace } from '@/services/packagingAlgorithm';
+
 const ProductsContext = createContext<ProductsContextType | undefined>(undefined);
 
-// Helper to calculate PPWR compliance from dimensions
-const calculateCompliance = (length: number, width: number, height: number) => {
-  const productVolume = length * width * height;
-  // Simple box calculation: add 4cm to each dimension
-  const boxVolume = (length + 4) * (width + 4) * (height + 4);
+// Helper to calculate PPWR compliance from product + packaging dimensions
+const calculateCompliance = (
+  productL: number, productW: number, productH: number,
+  packL?: number, packW?: number, packH?: number
+) => {
+  if (packL && packW && packH) {
+    const voidSpace = calculateVoidSpace(productL, productW, productH, packL, packW, packH);
+    return { voidSpace, ppwrCompliant: voidSpace < 40 };
+  }
+  // Fallback: no packaging dims yet — use old +4cm estimate
+  const productVolume = productL * productW * productH;
+  const boxVolume = (productL + 4) * (productW + 4) * (productH + 4);
   const voidSpace = Math.round(((boxVolume - productVolume) / boxVolume) * 100);
-  const ppwrCompliant = voidSpace < 40;
-  return { voidSpace, ppwrCompliant };
+  return { voidSpace, ppwrCompliant: voidSpace < 40 };
 };
 
 // Transform database product to context product
@@ -54,7 +72,10 @@ const transformProduct = (dbProduct: ProductType): Product => {
   const { voidSpace, ppwrCompliant } = calculateCompliance(
     Number(dbProduct.length_cm),
     Number(dbProduct.width_cm),
-    Number(dbProduct.height_cm)
+    Number(dbProduct.height_cm),
+    dbProduct.pack_length_cm ? Number(dbProduct.pack_length_cm) : undefined,
+    dbProduct.pack_width_cm ? Number(dbProduct.pack_width_cm) : undefined,
+    dbProduct.pack_height_cm ? Number(dbProduct.pack_height_cm) : undefined,
   );
 
   return {
@@ -66,9 +87,14 @@ const transformProduct = (dbProduct: ProductType): Product => {
     height: Number(dbProduct.height_cm),
     weight: dbProduct.weight_kg ? Number(dbProduct.weight_kg) : undefined,
     materials: dbProduct.materials || undefined,
+    packLength: dbProduct.pack_length_cm ? Number(dbProduct.pack_length_cm) : undefined,
+    packWidth: dbProduct.pack_width_cm ? Number(dbProduct.pack_width_cm) : undefined,
+    packHeight: dbProduct.pack_height_cm ? Number(dbProduct.pack_height_cm) : undefined,
+    packagingConfirmed: dbProduct.packaging_confirmed ?? false,
+    packagingConfirmedAt: dbProduct.packaging_confirmed_at || undefined,
     ppwrCompliant,
     voidSpace,
-    hasDPP: true, // All products can have DPP
+    hasDPP: true,
     createdAt: dbProduct.created_at,
     updatedAt: dbProduct.updated_at,
   };
@@ -83,13 +109,15 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
     updateProduct: updateDbProduct,
     deleteProduct: deleteDbProduct,
     importProducts: importDbProducts,
+    updatePackaging: updateDbPackaging,
+    confirmPackaging: confirmDbPackaging,
     refreshProducts
   } = useProductsHook(user?.id);
 
   // Transform database products to context products
   const products = dbProducts.map(transformProduct);
 
-  const addProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'ppwrCompliant' | 'voidSpace' | 'hasDPP'>): Promise<Product | null> => {
+  const addProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'ppwrCompliant' | 'voidSpace' | 'hasDPP' | 'packagingConfirmed' | 'packagingConfirmedAt'>): Promise<Product | null> => {
     const newProduct = await addDbProduct({
       name: productData.name,
       description: productData.description,
@@ -134,8 +162,19 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
     weight_kg?: number;
     materials?: string;
     description?: string;
+    pack_length_cm?: number;
+    pack_width_cm?: number;
+    pack_height_cm?: number;
   }>): Promise<{ success: number; failed: number }> => {
     return importDbProducts(csvProducts);
+  };
+
+  const updatePackaging = async (id: string, packLength: number, packWidth: number, packHeight: number): Promise<boolean> => {
+    return updateDbPackaging(id, packLength, packWidth, packHeight);
+  };
+
+  const confirmPackaging = async (ids: string[]): Promise<boolean> => {
+    return confirmDbPackaging(ids);
   };
 
   return (
@@ -147,6 +186,8 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
       deleteProduct,
       getProduct,
       importProducts,
+      updatePackaging,
+      confirmPackaging,
       refreshProducts
     }}>
       {children}

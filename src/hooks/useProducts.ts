@@ -12,6 +12,11 @@ export interface Product {
   height_cm: number;
   weight_kg?: number;
   materials?: string;
+  pack_length_cm?: number;
+  pack_width_cm?: number;
+  pack_height_cm?: number;
+  packaging_confirmed?: boolean;
+  packaging_confirmed_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -182,6 +187,9 @@ export function useProducts(userId: string | undefined) {
     weight_kg?: number;
     materials?: string;
     description?: string;
+    pack_length_cm?: number;
+    pack_width_cm?: number;
+    pack_height_cm?: number;
   }>): Promise<{ success: number; failed: number }> => {
     if (!userId) return { success: 0, failed: 0 };
 
@@ -200,7 +208,11 @@ export function useProducts(userId: string | undefined) {
             width_cm: product.width_cm,
             height_cm: product.height_cm,
             weight_kg: product.weight_kg || null,
-            materials: product.materials || null
+            materials: product.materials || null,
+            pack_length_cm: product.pack_length_cm || null,
+            pack_width_cm: product.pack_width_cm || null,
+            pack_height_cm: product.pack_height_cm || null,
+            packaging_confirmed: false,
           });
 
         if (error) throw error;
@@ -216,6 +228,89 @@ export function useProducts(userId: string | undefined) {
     return { success, failed };
   };
 
+  // Update packaging dimensions for a product
+  const updatePackaging = async (
+    id: string,
+    packLength: number,
+    packWidth: number,
+    packHeight: number
+  ): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          pack_length_cm: packLength,
+          pack_width_cm: packWidth,
+          pack_height_cm: packHeight,
+          packaging_confirmed: false,
+          packaging_confirmed_at: null,
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setProducts(prev => prev.map(p =>
+        p.id === id ? {
+          ...p,
+          pack_length_cm: packLength,
+          pack_width_cm: packWidth,
+          pack_height_cm: packHeight,
+          packaging_confirmed: false,
+          packaging_confirmed_at: undefined,
+        } : p
+      ));
+
+      return true;
+    } catch (error) {
+      console.error('Failed to update packaging:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update packaging dimensions',
+        variant: 'destructive'
+      });
+      return false;
+    }
+  };
+
+  // Confirm packaging dimensions for one or more products
+  const confirmPackaging = async (ids: string[]): Promise<boolean> => {
+    try {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('products')
+        .update({
+          packaging_confirmed: true,
+          packaging_confirmed_at: now,
+        })
+        .in('id', ids);
+
+      if (error) throw error;
+
+      setProducts(prev => prev.map(p =>
+        ids.includes(p.id) ? {
+          ...p,
+          packaging_confirmed: true,
+          packaging_confirmed_at: now,
+        } : p
+      ));
+
+      toast({
+        title: 'Packaging confirmed',
+        description: `${ids.length} product(s) packaging confirmed.`
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Failed to confirm packaging:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to confirm packaging',
+        variant: 'destructive'
+      });
+      return false;
+    }
+  };
+
   return {
     products,
     loading,
@@ -223,6 +318,8 @@ export function useProducts(userId: string | undefined) {
     updateProduct,
     deleteProduct,
     importProducts,
+    updatePackaging,
+    confirmPackaging,
     refreshProducts: fetchProducts
   };
 }

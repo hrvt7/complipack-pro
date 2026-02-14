@@ -3,23 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Download, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useProducts } from '@/contexts/ProductsContext';
 import { useToast } from '@/hooks/use-toast';
 import { parseCSV, downloadCSVTemplate, type ParsedProduct } from '@/services/csvService';
+import { suggestPackaging } from '@/services/packagingAlgorithm';
 
 interface ImportCSVModalProps {
   open: boolean;
@@ -31,6 +20,7 @@ type Step = 'instructions' | 'upload' | 'preview' | 'importing' | 'complete';
 export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
   const { importProducts } = useProducts();
   const { toast } = useToast();
+
   const [step, setStep] = useState<Step>('instructions');
   const [parsedData, setParsedData] = useState<ParsedProduct[]>([]);
   const [validCount, setValidCount] = useState(0);
@@ -49,7 +39,6 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
       setSelectedFile(file);
 
       try {
-        // Parse CSV locally using PapaParse - no backend needed
         const result = await parseCSV(file);
         setParsedData(result.data);
         setValidCount(result.validCount);
@@ -72,21 +61,24 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
     [toast]
   );
 
-  const handleFileDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.csv')) {
-      void handleFile(file);
-    } else {
-      toast({
-        title: 'Invalid file',
-        description: 'Please upload a .csv file.',
-        variant: 'destructive',
-      });
-    }
-  }, [handleFile, toast]);
+  const handleFileDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith('.csv')) {
+        void handleFile(file);
+      } else {
+        toast({
+          title: 'Invalid file',
+          description: 'Please upload a .csv file.',
+          variant: 'destructive',
+        });
+      }
+    },
+    [handleFile, toast]
+  );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -116,19 +108,25 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
     setImportProgress(10);
 
     try {
-      // Convert to the format expected by importProducts (direct Supabase insert)
-      const productsToImport = validRows.map((row) => ({
-        product_name: row.product_name,
-        length_cm: row.length_cm,
-        width_cm: row.width_cm,
-        height_cm: row.height_cm,
-        weight_kg: row.weight_kg,
-        materials: row.materials,
-        description: row.description,
-      }));
+      const productsToImport = validRows.map((row) => {
+        const suggestion = suggestPackaging(row.length_cm, row.width_cm, row.height_cm);
+        return {
+          product_name: row.product_name,
+          length_cm: row.length_cm,
+          width_cm: row.width_cm,
+          height_cm: row.height_cm,
+          weight_kg: row.weight_kg,
+          materials: row.materials,
+          description: row.description,
+          pack_length_cm: suggestion.packLength,
+          pack_width_cm: suggestion.packWidth,
+          pack_height_cm: suggestion.packHeight,
+        };
+      });
 
       setImportProgress(30);
 
+      // Direct Supabase insert via ProductsContext - no backend API needed
       const result = await importProducts(productsToImport);
 
       setImportProgress(100);
@@ -177,7 +175,6 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
         </DialogHeader>
 
         <AnimatePresence mode="wait">
-          {/* Step 1: Instructions */}
           {step === 'instructions' && (
             <motion.div
               key="instructions"
@@ -189,13 +186,27 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
               <div className="rounded-lg bg-muted/30 p-4 space-y-3">
                 <p className="text-sm font-medium">Upload a CSV file with these columns:</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• <code className="text-primary">product_name</code> (required)</li>
-                  <li>• <code className="text-primary">length_cm</code> (required)</li>
-                  <li>• <code className="text-primary">width_cm</code> (required)</li>
-                  <li>• <code className="text-primary">height_cm</code> (required)</li>
-                  <li>• <code className="text-muted-foreground">weight_kg</code> (optional)</li>
-                  <li>• <code className="text-muted-foreground">materials</code> (optional)</li>
-                  <li>• <code className="text-muted-foreground">description</code> (optional)</li>
+                  <li>
+                    • <code className="text-primary">product_name</code> (required)
+                  </li>
+                  <li>
+                    • <code className="text-primary">length_cm</code> (required)
+                  </li>
+                  <li>
+                    • <code className="text-primary">width_cm</code> (required)
+                  </li>
+                  <li>
+                    • <code className="text-primary">height_cm</code> (required)
+                  </li>
+                  <li>
+                    • <code className="text-muted-foreground">weight_kg</code> (optional)
+                  </li>
+                  <li>
+                    • <code className="text-muted-foreground">materials</code> (optional)
+                  </li>
+                  <li>
+                    • <code className="text-muted-foreground">description</code> (optional)
+                  </li>
                 </ul>
               </div>
 
@@ -210,7 +221,6 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
             </motion.div>
           )}
 
-          {/* Step 2: Upload */}
           {step === 'upload' && (
             <motion.div
               key="upload"
@@ -224,22 +234,14 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
                 onDrop={handleFileDrop}
                 className="border-2 border-dashed border-border rounded-xl p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"
               >
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  id="csv-upload"
-                />
+                <input type="file" accept=".csv" onChange={handleFileSelect} className="hidden" id="csv-upload" />
                 <label htmlFor="csv-upload" className="cursor-pointer">
                   <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <p className="font-medium">Drag & drop CSV file here</p>
                   <p className="text-sm text-muted-foreground mt-1">
                     or <span className="text-primary">click to browse</span>
                   </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    .csv files only, max 5 MB
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">.csv files only, max 5 MB</p>
                 </label>
               </div>
 
@@ -249,7 +251,6 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
             </motion.div>
           )}
 
-          {/* Step 3: Preview */}
           {step === 'preview' && (
             <motion.div
               key="preview"
@@ -269,11 +270,7 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
                     <span>{invalidCount} with errors</span>
                   </div>
                 )}
-                {selectedFile && (
-                  <span className="text-xs text-muted-foreground ml-auto">
-                    {selectedFile.name}
-                  </span>
-                )}
+                {selectedFile && <span className="text-xs text-muted-foreground ml-auto">{selectedFile.name}</span>}
               </div>
 
               <div className="max-h-[300px] overflow-auto rounded-lg border border-border">
@@ -298,7 +295,9 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
                               {row.errors.length > 0 && (
                                 <div className="absolute left-6 top-0 hidden group-hover:block bg-popover border border-border rounded-md p-2 text-xs shadow-md z-10 w-48">
                                   {row.errors.map((err, i) => (
-                                    <p key={i} className="text-destructive">{err}</p>
+                                    <p key={i} className="text-destructive">
+                                      {err}
+                                    </p>
                                   ))}
                                 </div>
                               )}
@@ -317,27 +316,20 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
               </div>
 
               {parsedData.length > 10 && (
-                <p className="text-sm text-muted-foreground text-center">
-                  Showing first 10 of {parsedData.length} products
-                </p>
+                <p className="text-sm text-muted-foreground text-center">Showing first 10 of {parsedData.length} products</p>
               )}
 
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setStep('upload')} className="flex-1">
                   Back
                 </Button>
-                <Button 
-                  onClick={handleImport} 
-                  className="flex-1"
-                  disabled={validCount === 0}
-                >
+                <Button onClick={handleImport} className="flex-1" disabled={validCount === 0}>
                   Import {validCount} Products
                 </Button>
               </div>
             </motion.div>
           )}
 
-          {/* Step 4: Importing */}
           {step === 'importing' && (
             <motion.div
               key="importing"
@@ -346,23 +338,19 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
               exit={{ opacity: 0, x: -20 }}
               className="py-8 text-center space-y-6"
             >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-              >
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>
                 <FileText className="h-12 w-12 mx-auto text-primary" />
               </motion.div>
-              
+
               <div className="space-y-2">
                 <p className="font-medium">Importing products...</p>
                 <p className="text-sm text-muted-foreground">{importProgress}% complete</p>
               </div>
-              
+
               <Progress value={importProgress} className="max-w-xs mx-auto" />
             </motion.div>
           )}
 
-          {/* Step 5: Complete */}
           {step === 'complete' && (
             <motion.div
               key="complete"
@@ -371,14 +359,10 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
               exit={{ opacity: 0, scale: 0.95 }}
               className="py-8 text-center space-y-6"
             >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', delay: 0.2 }}
-              >
+              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.2 }}>
                 <CheckCircle className="h-16 w-16 mx-auto text-emerald-500" />
               </motion.div>
-              
+
               <div className="space-y-2">
                 <p className="text-lg font-semibold">Import Complete!</p>
                 <p className="text-sm text-muted-foreground">

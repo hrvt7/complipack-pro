@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Product } from '@/contexts/ProductsContext';
+import { PackagingCell } from './PackagingCell';
 import { cn } from '@/lib/utils';
 
 interface ProductTableProps {
@@ -125,6 +126,7 @@ export function ProductTable({
               <SortableHeader field="dimensions">Dimensions</SortableHeader>
             </TableHead>
             <TableHead className="hidden md:table-cell">Weight</TableHead>
+            <TableHead className="hidden lg:table-cell">Packaging</TableHead>
             <TableHead>PPWR Status</TableHead>
             <TableHead className="hidden lg:table-cell">DPP Status</TableHead>
             <TableHead className="hidden xl:table-cell">
@@ -160,6 +162,9 @@ export function ProductTable({
               </TableCell>
               <TableCell className="hidden md:table-cell text-muted-foreground">
                 {product.weight ? `${product.weight} kg` : '-'}
+              </TableCell>
+              <TableCell className="hidden lg:table-cell">
+                <PackagingCell product={product} />
               </TableCell>
               <TableCell>
                 <Badge 
