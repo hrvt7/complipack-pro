@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from "@/integrations/supabase/client";
+import { listProducts } from '@/api/products';
+import { getComplianceStats } from '@/api/stats';
 
 export interface DashboardStats {
   totalProducts: number;
@@ -9,46 +10,50 @@ export interface DashboardStats {
   complianceRate: number;
 }
 
-export function useDashboardStats(userId: string | undefined) {
+export function useDashboardStats(_userId: string | undefined) {
   const [stats, setStats] = useState<DashboardStats>({
     totalProducts: 0,
     compliantProducts: 0,
     nonCompliantProducts: 0,
     reportsGenerated: 0,
-    complianceRate: 0
+    complianceRate: 0,
   });
   const [loading, setLoading] = useState(true);
 
   const fetchStats = useCallback(async () => {
-    if (!userId) {
-      setStats({
-        totalProducts: 0,
-        compliantProducts: 0,
-        nonCompliantProducts: 0,
-        reportsGenerated: 0,
-        complianceRate: 0
-      });
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     try {
-      // Fetch all counts in parallel
-      const [productsResult, reportsResult, compliantResult, nonCompliantResult] = await Promise.all([
-        supabase.from('products').select('*', { count: 'exact', head: true }).eq('user_id', userId),
-        supabase.from('compliance_reports').select('*', { count: 'exact', head: true }).eq('user_id', userId),
-        supabase.from('compliance_reports').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_ppwr_compliant', true),
-        supabase.from('compliance_reports').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_ppwr_compliant', false)
-      ]);
+      try {
+        const statsResponse = await getComplianceStats();
+        const totalProducts = Number(statsResponse.total_products ?? 0);
+        const compliantProducts = Number(statsResponse.confirmed_packaging_products ?? 0);
+        const nonCompliantProducts = Math.max(0, totalProducts - compliantProducts);
+        const reportsGenerated = Number(statsResponse.reports_generated ?? 0);
+        const complianceRate = totalProducts > 0
+          ? Math.round((compliantProducts / totalProducts) * 100)
+          : 0;
 
-      const totalProducts = productsResult.count || 0;
-      const reportsGenerated = reportsResult.count || 0;
-      const compliantProducts = compliantResult.count || 0;
-      const nonCompliantProducts = nonCompliantResult.count || 0;
+        setStats({
+          totalProducts,
+          compliantProducts,
+          nonCompliantProducts,
+          reportsGenerated,
+          complianceRate,
+        });
+        return;
+      } catch (statsError) {
+        console.warn('Failed to fetch /api/compliance/stats, falling back to products list.', statsError);
+      }
 
-      const complianceRate = reportsGenerated > 0
-        ? Math.round((compliantProducts / reportsGenerated) * 100)
+      const response = await listProducts();
+      const products = response.products || [];
+
+      const totalProducts = products.length;
+      const compliantProducts = products.filter((p) => p.packaging_status === 'confirmed').length;
+      const nonCompliantProducts = Math.max(0, totalProducts - compliantProducts);
+      const reportsGenerated = 0;
+      const complianceRate = totalProducts > 0
+        ? Math.round((compliantProducts / totalProducts) * 100)
         : 0;
 
       setStats({
@@ -56,14 +61,21 @@ export function useDashboardStats(userId: string | undefined) {
         compliantProducts,
         nonCompliantProducts,
         reportsGenerated,
-        complianceRate
+        complianceRate,
       });
     } catch (error) {
       console.error('Failed to fetch dashboard stats:', error);
+      setStats({
+        totalProducts: 0,
+        compliantProducts: 0,
+        nonCompliantProducts: 0,
+        reportsGenerated: 0,
+        complianceRate: 0,
+      });
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     fetchStats();
@@ -72,6 +84,6 @@ export function useDashboardStats(userId: string | undefined) {
   return {
     stats,
     loading,
-    refreshStats: fetchStats
+    refreshStats: fetchStats,
   };
 }

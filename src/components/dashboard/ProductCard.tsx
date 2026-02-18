@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Package, MoreVertical, FileText } from 'lucide-react';
+import { Package, MoreVertical, FileText, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -19,6 +19,7 @@ interface ProductCardProps {
   onDuplicate?: () => void;
   onDelete?: () => void;
   onGenerateReport?: () => void;
+  onConfirmDimensions?: () => void;
   delay?: number;
 }
 
@@ -29,9 +30,13 @@ export function ProductCard({
   onDuplicate,
   onDelete,
   onGenerateReport,
+  onConfirmDimensions,
   delay = 0,
 }: ProductCardProps) {
   const voidSpaceColor = product.voidSpace < 40 ? 'bg-emerald-500' : 'bg-destructive';
+
+  const needsDimensionConfirmation =
+    product.packagingStatus === 'estimated' || product.packagingStatus === 'missing' || !product.packagingStatus;
 
   return (
     <motion.div
@@ -92,6 +97,18 @@ export function ProductCard({
           >
             {product.hasDPP ? '✓ DPP' : '✗ No DPP'}
           </Badge>
+
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-xs",
+              product.packagingStatus === 'confirmed'
+                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+            )}
+          >
+            {product.packagingStatus || 'missing'}
+          </Badge>
         </div>
 
         {/* Void Space */}
@@ -119,8 +136,18 @@ export function ProductCard({
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           whileHover={{ opacity: 1, y: 0 }}
-          className="opacity-0 group-hover:opacity-100 transition-all pt-2"
+          className="pt-2 space-y-2"
         >
+          {needsDimensionConfirmation && (
+            <Button
+              size="sm"
+              className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={onConfirmDimensions}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Confirm Dimensions
+            </Button>
+          )}
           <Button 
             variant="outline" 
             size="sm" 

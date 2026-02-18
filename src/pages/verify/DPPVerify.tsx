@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { supabase } from '@/integrations/supabase/client';
+import { backendFetch } from '@/lib/backendClient';
 import { DPPData } from '@/services/complianceService';
 
 interface DPPReport {
@@ -43,22 +43,16 @@ export default function DPPVerify() {
       }
 
       try {
-        const { data, error: fetchError } = await supabase
-          .from('compliance_reports')
-          .select(`
-            id,
-            created_at,
-            dpp_data,
-            products (name, description)
-          `)
-          .eq('id', reportId)
-          .maybeSingle();
+        const data = await backendFetch<DPPReport | { report?: DPPReport }>(`/api/compliance/report/${reportId}`, {
+          method: 'GET',
+        });
 
-        if (fetchError) throw fetchError;
-        if (!data) {
+        const reportPayload = (data as { report?: DPPReport }).report ?? (data as DPPReport);
+
+        if (!reportPayload) {
           setError('Report not found');
         } else {
-          setReport(data as unknown as DPPReport);
+          setReport(reportPayload);
         }
       } catch (err) {
         console.error('Failed to fetch report:', err);

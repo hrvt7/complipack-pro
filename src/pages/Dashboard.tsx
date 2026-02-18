@@ -24,7 +24,7 @@ import { createShop } from '@/api/shops';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { products } = useProducts();
+  const { products, refreshProducts } = useProducts();
   const { reports } = useReports();
 
   const [addProductOpen, setAddProductOpen] = useState(false);
@@ -242,7 +242,13 @@ export default function Dashboard() {
 
       {/* Modals */}
       <AddProductModal open={addProductOpen} onClose={() => setAddProductOpen(false)} />
-      <ImportCSVModal open={importCSVOpen} onClose={() => setImportCSVOpen(false)} />
+      <ImportCSVModal
+        open={importCSVOpen}
+        onClose={() => setImportCSVOpen(false)}
+        onImported={() => {
+          refreshProducts();
+        }}
+      />
       <GenerateReportModal open={generateReportOpen} onClose={() => setGenerateReportOpen(false)} />
     </div>
   );

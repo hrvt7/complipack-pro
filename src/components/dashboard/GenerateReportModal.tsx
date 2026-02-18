@@ -27,9 +27,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
-  finalizeComplianceReport,
-  generateComplianceReport,
-} from '@/api/dpp';
+  finalizeReport,
+  generateReport,
+} from '@/api/reports';
 
 interface GenerateReportModalProps {
   open: boolean;
@@ -104,27 +104,30 @@ export function GenerateReportModal({ open, onClose, preselectedProductId }: Gen
           throw new Error('Please sign in again to generate a DPP.');
         }
 
-        const generated = await generateComplianceReport({
+        const generated = await generateReport({
           product_id: primaryProductId,
         });
         const reportId =
           generated.report?.id || generated.report_id || generated.id;
 
+        let reportPayload = generated.report ?? generated;
+
         if (!reportId) {
           throw new Error('Missing report_id from backend response.');
         }
 
-        const finalized = await finalizeComplianceReport({
-          report_id: reportId,
-          actor_id: user.id,
-        });
-
-        const reportPayload = finalized.report ?? finalized;
+        if (!reportPayload.pdf_url && !reportPayload.qr_url && !reportPayload.public_dpp_url) {
+          const finalized = await finalizeReport({
+            report_id: reportId,
+            actor_id: user.id,
+          });
+          reportPayload = finalized.report ?? finalized;
+        }
         setDppResult({
           reportId,
           pdfUrl: reportPayload.pdf_url,
           qrUrl: reportPayload.qr_url,
-          publicDppUrl: reportPayload.public_dpp_url,
+          publicDppUrl: reportPayload.public_dpp_url || reportPayload.public_url,
           carbonLightTotal: reportPayload.carbon_light_total,
           disclaimer: reportPayload.disclaimer,
         });
@@ -153,9 +156,17 @@ export function GenerateReportModal({ open, onClose, preselectedProductId }: Gen
     } catch (error: any) {
       console.error('Failed to generate report:', error);
       setStep('options');
+      const message =
+        typeof error?.message === 'string'
+          ? error.message
+          : 'Please try again.';
+      const needsConfirmation = message.toLowerCase().includes('packaging dimensions must be confirmed');
+
       toast({
         title: 'Report generation failed',
-        description: error?.message ?? 'Please try again.',
+        description: needsConfirmation
+          ? 'Méreteket még nem erősítetted meg. Kattints a Confirm Dimensions gombra!'
+          : message,
         variant: 'destructive',
       });
     }

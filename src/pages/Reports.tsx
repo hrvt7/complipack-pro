@@ -168,11 +168,27 @@ export default function Reports() {
 
       const result = await exportEpr(payload);
 
-      if (result.xlsx_url) {
-        window.open(result.xlsx_url, '_blank');
-      }
-      if (result.pdf_url) {
-        window.open(result.pdf_url, '_blank');
+      if (result instanceof Blob) {
+        const mimeType = result.type;
+        const extension =
+          mimeType.includes('pdf')
+            ? 'pdf'
+            : mimeType.includes('spreadsheet') || mimeType.includes('excel')
+              ? 'xlsx'
+              : 'bin';
+        const url = URL.createObjectURL(result);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `epr-export.${extension}`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+      } else {
+        if (result.xlsx_url) {
+          window.open(result.xlsx_url, '_blank');
+        }
+        if (result.pdf_url) {
+          window.open(result.pdf_url, '_blank');
+        }
       }
 
       toast({

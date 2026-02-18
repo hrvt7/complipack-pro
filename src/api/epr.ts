@@ -13,7 +13,7 @@ export type EprExportResponse = {
 };
 
 export async function exportEpr(payload?: EprExportPayload) {
-  return backendFetch<EprExportResponse>("/api/epr/export", {
+  return backendFetch<EprExportResponse | Blob>("/api/epr/export", {
     method: "POST",
     json: payload ?? {},
   });

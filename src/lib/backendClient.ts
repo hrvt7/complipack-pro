@@ -6,13 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
  * Local dev fallback: relative paths (Vite dev server proxy)
  */
 function getBackendBaseUrl(): string {
-  const base = import.meta.env.VITE_BACKEND_BASE_URL as string | undefined;
-
-  if (base && base.startsWith("http")) {
-    return base.endsWith("/") ? base : base + "/";
-  }
-
-  return "";
+  return (import.meta.env.VITE_BACKEND_BASE_URL as string | undefined) || "";
 }
 
 /**
@@ -36,14 +30,13 @@ async function getBearerToken(): Promise<string> {
  * Build absolute backend URL from path.
  */
 function buildUrl(path: string): string {
-  const base = getBackendBaseUrl();
+  const base = getBackendBaseUrl().replace(/\/$/, "");
   if (!base) {
     return path;
   }
 
-  const cleanBase = base.endsWith("/") ? base.slice(0, -1) : base;
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  return `${cleanBase}${cleanPath}`;
+  return `${base}${cleanPath}`;
 }
 
 /**
@@ -109,5 +102,10 @@ export async function backendFetch<T>(
     return {} as T;
   }
 
-  return (await res.json()) as T;
+  const contentType = res.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json") || contentType.includes("+json")) {
+    return (await res.json()) as T;
+  }
+
+  return (await res.blob()) as T;
 }

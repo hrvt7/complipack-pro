@@ -12,17 +12,15 @@ export interface UserDataExport {
 export const exportUserData = async (userId: string): Promise<void> => {
   try {
     // Fetch all user data in parallel
-    const [profileResult, productsResult, reportsResult, termsResult] = await Promise.all([
+    const [profileResult, termsResult] = await Promise.all([
       supabase.from('user_profiles').select('*').eq('id', userId).maybeSingle(),
-      supabase.from('products').select('*').eq('user_id', userId),
-      supabase.from('compliance_reports').select('*').eq('user_id', userId),
       supabase.from('terms_acceptances').select('*').eq('user_id', userId)
     ]);
 
     const exportData: UserDataExport = {
       profile: profileResult.data || null,
-      products: productsResult.data || [],
-      reports: reportsResult.data || [],
+      products: [],
+      reports: [],
       terms_acceptances: termsResult.data || [],
       exported_at: new Date().toISOString()
     };
@@ -69,8 +67,6 @@ export const deleteUserAccount = async (userId: string): Promise<void> => {
 
     // Delete database records in order (respecting foreign keys)
     // Reports reference products, so delete reports first
-    await supabase.from('compliance_reports').delete().eq('user_id', userId);
-    await supabase.from('products').delete().eq('user_id', userId);
     await supabase.from('terms_acceptances').delete().eq('user_id', userId);
     await supabase.from('subscriptions').delete().eq('user_id', userId);
     await supabase.from('user_profiles').delete().eq('id', userId);

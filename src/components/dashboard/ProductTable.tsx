@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
-import { MoreVertical, ArrowUpDown } from 'lucide-react';
+import { MoreVertical, ArrowUpDown, CheckCircle2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -28,6 +28,7 @@ interface ProductTableProps {
   onDuplicate?: (product: Product) => void;
   onDelete?: (product: Product) => void;
   onGenerateReport?: (product: Product) => void;
+  onConfirmDimensions?: (product: Product) => void;
   selectedIds?: string[];
   onSelectionChange?: (ids: string[]) => void;
 }
@@ -41,6 +42,7 @@ export function ProductTable({
   onDuplicate,
   onDelete,
   onGenerateReport,
+  onConfirmDimensions,
   selectedIds = [],
   onSelectionChange,
 }: ProductTableProps) {
@@ -126,6 +128,7 @@ export function ProductTable({
             </TableHead>
             <TableHead className="hidden md:table-cell">Weight</TableHead>
             <TableHead>PPWR Status</TableHead>
+            <TableHead className="hidden lg:table-cell">Packaging</TableHead>
             <TableHead className="hidden lg:table-cell">DPP Status</TableHead>
             <TableHead className="hidden xl:table-cell">
               <SortableHeader field="voidSpace">Void Space</SortableHeader>
@@ -173,6 +176,19 @@ export function ProductTable({
                 </Badge>
               </TableCell>
               <TableCell className="hidden lg:table-cell">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs",
+                    product.packagingStatus === 'confirmed'
+                      ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                  )}
+                >
+                  {product.packagingStatus || 'missing'}
+                </Badge>
+              </TableCell>
+              <TableCell className="hidden lg:table-cell">
                 <Badge 
                   variant="outline"
                   className={cn(
@@ -205,26 +221,38 @@ export function ProductTable({
                 </div>
               </TableCell>
               <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onGenerateReport?.(product)}>
-                      Generate Report
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onEdit?.(product)}>Edit</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onDuplicate?.(product)}>Duplicate</DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => onDelete?.(product)}
-                      className="text-destructive"
+                <div className="flex items-center justify-end gap-2">
+                  {(product.packagingStatus === 'estimated' || product.packagingStatus === 'missing' || !product.packagingStatus) && (
+                    <Button
+                      size="sm"
+                      className="h-8 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => onConfirmDimensions?.(product)}
                     >
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Confirm Dimensions
+                    </Button>
+                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onGenerateReport?.(product)}>
+                        Generate Report
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEdit?.(product)}>Edit</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onDuplicate?.(product)}>Duplicate</DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => onDelete?.(product)}
+                        className="text-destructive"
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </TableCell>
             </motion.tr>
           ))}

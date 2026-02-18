@@ -17,16 +17,43 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useProducts } from '@/contexts/ProductsContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { importProducts } from '@/api/products';
 
 interface ImportCSVModalProps {
   open: boolean;
   onClose: () => void;
+  onImported?: () => void;
 }
 
 type Step = 'instructions' | 'upload' | 'preview' | 'importing' | 'complete';
+
+
+const toErrorMessage = (error: unknown): string => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error && typeof error === 'object') {
+    const maybeMessage = (error as { message?: unknown }).message;
+    if (typeof maybeMessage === 'string' && maybeMessage.trim()) {
+      return maybeMessage;
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'Unable to import products.';
+    }
+  }
+
+  return 'Unable to import products.';
+};
 
 interface ParsedRow {
   product_name: string;
@@ -40,11 +67,11 @@ interface ParsedRow {
   errors: string[];
 }
 
-export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
-  const { addProduct } = useProducts();
+export function ImportCSVModal({ open, onClose, onImported }: ImportCSVModalProps) {
   const { toast } = useToast();
   const [step, setStep] = useState<Step>('instructions');
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
+  const [rawCsv, setRawCsv] = useState<string | null>(null);
   const [importProgress, setImportProgress] = useState(0);
   const [importResults, setImportResults] = useState({ success: 0, failed: 0 });
 
@@ -61,7 +88,7 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
     
     return lines.slice(1).map(line => {
       const values = line.split(',').map(v => v.trim());
-      const row: any = {};
+      const row: Record<string, string> = {};
       
       headers.forEach((header, index) => {
         row[header] = values[index] || '';
@@ -97,6 +124,7 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const content = event.target?.result as string;
+        setRawCsv(content);
         const parsed = parseCSV(content);
         setParsedData(parsed);
         setStep('preview');
@@ -111,6 +139,7 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const content = event.target?.result as string;
+        setRawCsv(content);
         const parsed = parseCSV(content);
         setParsedData(parsed);
         setStep('preview');
@@ -120,35 +149,45 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
   };
 
   const handleImport = async () => {
-    setStep('importing');
-    const validRows = parsedData.filter(row => row.isValid);
-    let success = 0;
-    let failed = 0;
-
-    for (let i = 0; i < validRows.length; i++) {
-      const row = validRows[i];
-      
-      try {
-        addProduct({
-          name: row.product_name,
-          description: row.description,
-          length: row.length_cm,
-          width: row.width_cm,
-          height: row.height_cm,
-          weight: row.weight_kg,
-          materials: row.materials,
-        });
-        success++;
-      } catch {
-        failed++;
-      }
-
-      setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
-      await new Promise(resolve => setTimeout(resolve, 50));
+    if (!rawCsv?.trim()) {
+      toast({
+        title: 'Import failed',
+        description: 'CSV content is missing. Please upload a CSV file again.',
+        variant: 'destructive',
+      });
+      return;
     }
 
-    setImportResults({ success, failed: failed + parsedData.filter(r => !r.isValid).length });
-    setStep('complete');
+    setStep('importing');
+    setImportProgress(25);
+
+    try {
+      const response = await importProducts({
+        csv_text: rawCsv,
+        csv: rawCsv,
+      });
+
+      setImportProgress(100);
+
+      const success = response?.imported ?? validCount;
+      const failed = response?.failed ?? invalidCount;
+
+      setImportResults({ success, failed });
+      onImported?.();
+      setStep('complete');
+      toast({
+        title: 'Import complete',
+        description: response?.message ?? `${success} products imported${failed ? `, ${failed} failed` : ''}.`,
+      });
+    } catch (error: unknown) {
+      setImportProgress(0);
+      setStep('preview');
+      toast({
+        title: 'Import failed',
+        description: toErrorMessage(error),
+        variant: 'destructive',
+      });
+    }
   };
 
   const downloadTemplate = () => {
@@ -165,6 +204,7 @@ export function ImportCSVModal({ open, onClose }: ImportCSVModalProps) {
   const handleClose = () => {
     setStep('instructions');
     setParsedData([]);
+    setRawCsv(null);
     setImportProgress(0);
     setImportResults({ success: 0, failed: 0 });
     onClose();

@@ -67,14 +67,14 @@ Create a `.env.local` file (or copy `.env.local.example`) with:
 ```sh
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_BACKEND_BASE_URL=http://localhost:3000
+VITE_BACKEND_BASE_URL=your_backend_base_url
 ```
 
-`VITE_BACKEND_BASE_URL` should point to your backend dev URL or the deployed Vercel backend URL.
+`VITE_BACKEND_BASE_URL` should point to your backend dev URL or the deployed Vercel backend URL (no trailing slash).
 
 ## Local Development (MVP Golden Flow)
 
-1. Set `VITE_BACKEND_BASE_URL` to your backend dev URL (for example `http://localhost:3000`) or Vercel backend URL.
+1. Copy `.env.local.example` to `.env.local` and fill in your Supabase and backend URLs.
 2. Install dependencies:
    ```sh
    npm install

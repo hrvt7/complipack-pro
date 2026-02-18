@@ -35,6 +35,7 @@ import { ProductTable } from '@/components/dashboard/ProductTable';
 import { AddProductModal } from '@/components/dashboard/AddProductModal';
 import { ImportCSVModal } from '@/components/dashboard/ImportCSVModal';
 import { GenerateReportModal } from '@/components/dashboard/GenerateReportModal';
+import { ConfirmDimensionsModal } from '@/components/dashboard/ConfirmDimensionsModal';
 import { useProducts, Product } from '@/contexts/ProductsContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -46,7 +47,7 @@ type SortType = 'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc';
 export default function Products() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { products, deleteProduct } = useProducts();
+  const { products, deleteProduct, refreshProducts } = useProducts();
   const { toast } = useToast();
   
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -61,6 +62,8 @@ export default function Products() {
   const [generateReportOpen, setGenerateReportOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [confirmDimensionsOpen, setConfirmDimensionsOpen] = useState(false);
+  const [productToConfirm, setProductToConfirm] = useState<Product | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -128,6 +131,12 @@ export default function Products() {
       setProductToDelete(null);
     }
     setDeleteDialogOpen(false);
+  };
+
+
+  const handleConfirmDimensions = (product: Product) => {
+    setProductToConfirm(product);
+    setConfirmDimensionsOpen(true);
   };
 
   const handleBulkDelete = () => {
@@ -296,6 +305,7 @@ export default function Products() {
                 setSelectedIds([product.id]);
                 setGenerateReportOpen(true);
               }}
+              onConfirmDimensions={() => handleConfirmDimensions(product)}
               delay={index * 50}
             />
           ))}
@@ -310,12 +320,30 @@ export default function Products() {
             setSelectedIds([product.id]);
             setGenerateReportOpen(true);
           }}
+          onConfirmDimensions={handleConfirmDimensions}
         />
       )}
 
       {/* Modals */}
       <AddProductModal open={addProductOpen} onClose={() => setAddProductOpen(false)} />
-      <ImportCSVModal open={importCSVOpen} onClose={() => setImportCSVOpen(false)} />
+      <ImportCSVModal
+        open={importCSVOpen}
+        onClose={() => setImportCSVOpen(false)}
+        onImported={() => {
+          refreshProducts();
+        }}
+      />
+      <ConfirmDimensionsModal
+        open={confirmDimensionsOpen}
+        product={productToConfirm}
+        onClose={() => {
+          setConfirmDimensionsOpen(false);
+          setProductToConfirm(null);
+        }}
+        onConfirmed={() => {
+          refreshProducts();
+        }}
+      />
       <GenerateReportModal 
         open={generateReportOpen} 
         onClose={() => {

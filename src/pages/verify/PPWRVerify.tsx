@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
+import { backendFetch } from '@/lib/backendClient';
 import { cn } from '@/lib/utils';
 
 interface PPWRReport {
@@ -50,24 +50,16 @@ export default function PPWRVerify() {
       }
 
       try {
-        const { data, error: fetchError } = await supabase
-          .from('compliance_reports')
-          .select(`
-            id,
-            created_at,
-            void_space_percent,
-            is_ppwr_compliant,
-            products (name, length_cm, width_cm, height_cm),
-            standard_boxes (name, length_cm, width_cm, height_cm)
-          `)
-          .eq('id', reportId)
-          .maybeSingle();
+        const data = await backendFetch<PPWRReport | { report?: PPWRReport }>(`/api/compliance/report/${reportId}`, {
+          method: 'GET',
+        });
 
-        if (fetchError) throw fetchError;
-        if (!data) {
+        const reportPayload = (data as { report?: PPWRReport }).report ?? (data as PPWRReport);
+
+        if (!reportPayload) {
           setError('Report not found');
         } else {
-          setReport(data as unknown as PPWRReport);
+          setReport(reportPayload);
         }
       } catch (err) {
         console.error('Failed to fetch report:', err);

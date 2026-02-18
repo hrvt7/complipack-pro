@@ -11,6 +11,7 @@ export interface Product {
   height: number;
   weight?: number;
   materials?: string;
+  packagingStatus?: string;
   ppwrCompliant: boolean;
   voidSpace: number;
   hasDPP: boolean;
@@ -66,6 +67,7 @@ const transformProduct = (dbProduct: ProductType): Product => {
     height: Number(dbProduct.height_cm),
     weight: dbProduct.weight_kg ? Number(dbProduct.weight_kg) : undefined,
     materials: dbProduct.materials || undefined,
+    packagingStatus: dbProduct.packaging_status || undefined,
     ppwrCompliant,
     voidSpace,
     hasDPP: true, // All products can have DPP
